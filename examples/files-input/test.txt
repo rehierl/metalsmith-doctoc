@@ -1,0 +1,4 @@
+---
+menu: "0"
+---
+contents of 0.txt
