@@ -16,6 +16,7 @@ function Options() {
   //- if a file has a doctocFlag property, then the file is
   //  considered to be marked as "to be processed"
   //- set true to use the default configuration
+  //- ignore any file that does not have this property
   this.doctocFlag = "doctoc";
   
   //- set true to ignore all doctocFlag values
@@ -24,10 +25,10 @@ function Options() {
   this.ignoreFlag = false;
   
   this.plugins = {
-    "doctoc": "metalsmith-doctoc-default"
+    "default": require("./PluginDefault.js")
   };
   
-  this.default = "doctoc";
+  this.default = "default";
   
   //- to which file metadata property to attach the
   //  table-of-contents tree
@@ -78,9 +79,7 @@ Options.prototype.combine = function (userOptions) {
     
     //- options.doctocFlag
     
-    if(!userOptions.hasOwnProperty("doctocFlag")) {
-      throw new TypeError("options.doctocFlag is required");
-    } else {//- doctocFlag exists
+    if(userOptions.hasOwnProperty("doctocFlag")) {
       value = userOptions.doctocFlag;
       
       if(!is.string(value)) {
