@@ -5,6 +5,8 @@
 
 const is = require("is");
 
+const PluginDefault = require("./PluginDefault.js");
+
 module.exports = Options;
 
 //========//========//========//========//========//========//========//========
@@ -25,10 +27,22 @@ function Options() {
   this.ignoreFlag = false;
   
   this.plugins = {
-    "default": require("./PluginDefault.js")
+    "doctoc-1": "doctoc-default",
+    "doctoc-2": { plugin: "doctoc-default", options: {} },
+    
+    "doctoc-3": require("./PluginDefault.js"),
+    "doctoc-4": { plugin: require("./PluginDefault.js"), options: {} },
+    
+    "doctoc-5": PluginDefault,//- same as 3
+    //"doctoc-6": new PluginDefault({}),//- not allowed
+    "doctoc-7": { plugin: PluginDefault, options: {} },//- same as 4
+    "doctoc-8": { plugin: new PluginDefault({}) },
+    "doctoc-9": { plugin: new PluginDefault({}), options: {} },
   };
   
-  this.default = "default";
+  //- the plugin configuration to use by default
+  //- this.plugins[this.default] must exist
+  this.default = "doctoc-1";
   
   //- to which file metadata property to attach the
   //  table-of-contents tree

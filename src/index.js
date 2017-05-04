@@ -41,9 +41,12 @@ function plugin(options) {
         //flagValue
         //- true - default worker with non-file specific options
         //- object - { plugin: "plugin-name" (, options: plugin-options)? }
-        let worker = selectWorker(filename, flagValue, settings);
+        let plugin = selectPlugin(filename, flagValue, settings);
 
-        let result = worker(filename, file);
+        //- process the current file
+        let result = plugin.run(filename, file, flagValue.options);
+        
+        //- write the tree to the selected property
         file[settings.doctocTree] = result;
       } catch(error) {
         done(error);
@@ -62,6 +65,7 @@ function initializePlugins(settings) {
   
   for(let ix=0, ic=keys.length; ix<ic; ix++) {
     let configId = keys[ix];
+    console.log("config:", configId);
     let config = settings.plugins[configId];
     
     if(is.string(config)) {
@@ -70,7 +74,6 @@ function initializePlugins(settings) {
     }
     
     if(is.fn(config)) {
-      //- e.g. plugins = { "name": require("...") }
       config = { plugin: config };
       settings.plugins[configId] = config;
     }
@@ -90,18 +93,25 @@ function initializePlugins(settings) {
     let plugin = config.plugin;
     
     if(is.string(plugin)) {
-      try {
-        plugin = requirePlugin(plugin);
+      try {//- use a pre-defined plugin
+        plugin = resolvePluginReference(plugin);
         config.plugin = plugin;
       } catch(error) {
         throw new Error(util.format(
-          "doctoc: options.plugins[%s].plugin cannot be resolved", configId
+          "doctoc: options.plugins[%s].plugin: unknown identifier", configId
         ));
       }
     }
     
     if(is.fn(plugin)) {
-      
+      try {
+        plugin = new plugin();
+        config.plugin = plugin;
+      } catch(error) {
+        throw new Error(util.format(
+          "doctoc: options.plugins[%s].plugin: failed to initialize", configId
+        ));
+      }
     }
     
     if(!is.object(plugin)) {
@@ -110,22 +120,21 @@ function initializePlugins(settings) {
       ));
     }
     
-    plugin.setDefaultOptions(config.options);
+    if(config.hasOwnProperty("options")) {
+      plugin.applyDefaultOptions(config.options);
+    }
   }
 }
 
 //========//========//========//========//========//========//========//========
 
-function requirePlugin(reference) {
-  let pluginModule = undefined;
-  
+function resolvePluginReference(reference) {
   if(reference === "doctoc-default") {
-    pluginModule = require("./DocTocDefault.js");
-  } else {
-    pluginModule = require(reference);
+    return require("./PluginDefault.js");
   }
-  
-  return new pluginModule();
+  throw new Error(util.format(
+    "doctoc: [%s] is an invalid plugin reference", reference
+  ));
 }
 
 //========//========//========//========//========//========//========//========
@@ -157,22 +166,22 @@ function getFlagValue(filename, file, settings) {
   if(is.string(flagValue)) {
     //- use the specified plugin
     //  with non-file specific options
-    return { plugin: flagValue };
+    return { config: flagValue };
   }
   
   if(is.object(flagValue)) {
-    if(!flagValue.hasOwnProperty("plugin")) {
+    if(!flagValue.hasOwnProperty("config")) {
       throw new Error(util.format(
-        "doctoc [%s]: file[%s] object must have a 'plugin' property",
+        "doctoc [%s]: file[%s] object must have a 'config' property",
         filename, flagName
       ));
     }
     
-    let flagPluginValue = flagValue.plugin;
+    let pluginConfig = flagValue.config;
     
-    if(!is.string(flagPluginValue)) {
+    if(!is.string(pluginConfig)) {
       throw new Error(util.format(
-        "doctoc [%s]: file[%s].plugin must have a string value",
+        "doctoc [%s]: file[%s].config must be a string value",
         filename, flagName
       ));
     }
@@ -198,7 +207,7 @@ function getFlagValue(filename, file, settings) {
 //flagValue
 //- true - default worker with non-file specific options
 //- object - { plugin: "plugin-name" (, options: plugin-options)? }
-function selectWorker(filename, flagValue, settings) {
+function selectPlugin(filename, flagValue, settings) {
   if(flagValue === true) {
     //- use the default worker with non-file specific options
     flagValue = { plugin: settings.default };
@@ -206,4 +215,12 @@ function selectWorker(filename, flagValue, settings) {
   
   let reference = flagValue.plugin;
   
+  if(!settings.config.hasOwnProperty(reference)) {
+    throw new Error(util.format(
+      "doctoc [%s]: file[%s].plugin has an invalid value",
+      filename, settings.doctocFlag
+    ));
+  }
+  
+  return settings.config[reference].plugin;
 }
