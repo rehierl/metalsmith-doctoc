@@ -1,5 +1,4 @@
 
-
 /* 
  * global __dirname
  * Used to disable JsHint warning about __dirname being not declared.
@@ -44,21 +43,26 @@ const msi = new metalsmith(basedir)
 
 //========//========//========//========//========
 
-//*
-.use(doctoc({
-}))//*/
-
-//========//========//========//========//========
-
 //- end the current expression
 ;
-
-//- require example modules
 
 //- start a new expression
 msi
 
-//- use example modules
+.use(function(files, metalsmith, done) {
+  console.log("pre-process");
+  done();
+})
+
+//*
+.use(doctoc({
+  //- use the default settings
+}))//*/
+
+.use(function(files, metalsmith, done) {
+  console.log("post-process");
+  done();
+})
 
 //========//========//========//========//========
 
