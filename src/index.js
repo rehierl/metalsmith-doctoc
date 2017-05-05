@@ -14,14 +14,16 @@ module.exports = plugin;
 
 //========//========//========//========//========//========//========//========
 
-function plugin(options) {
-  const settings = new Options();
-  settings.combine(options);
+function plugin(userOptions) {
+  const options = new Options();
+  options.combine(userOptions);
   
-  initializePlugins(settings);
+  //- after:  settings.plugins := { ($configName: $definition)* }
+  //  where definition := { plugin: $instance (, options: $options)?, ...}
+  initializePlugins(options);
   
   return function main(files, metalsmith, done) {
-    let keys = multimatch(Object.keys(files), settings.pattern);
+    let keys = multimatch(Object.keys(files), options.pattern);
     
     for(let ix=0, ic=keys.length; ix<ic; ix++) {
       let filename = keys[ix];
@@ -31,18 +33,22 @@ function plugin(options) {
         //- false - ignore this file
         //- true - use the default worker with non-file specific options
         //- config := { config: $configName (, options: $options)? }
-        let flagValue = getFlagValue(filename, file, settings);
+        let flagValue = getFlagValue(filename, file, options);
         if(flagValue === false) continue;
 
-        //- plugin := one of the settings.plugins instances
-        //  after applying flagValue.options (if available)
-        let plugin = selectPlugin(filename, flagValue, settings);
+        //- config := one of the settings.plugins $definition entries
+        //- this will also apply flagValue.options (if available)
+        let config = selectConfig(filename, flagValue, options);
+        let instance = config.plugin;
 
         //- process the current file
-        let result = plugin.run(filename, file);
+        let root = instance.run(filename, file);
         
-        //- write the tree to the selected property
-        file[settings.doctocTree] = result;
+        //- finalize the tree structure
+        finalizeDocTocTree(root);
+        
+        //- assign the tree to the selected property
+        file[options.doctocTree] = root;
       } catch(error) {
         done(error);
         return;
@@ -55,49 +61,59 @@ function plugin(options) {
 
 //========//========//========//========//========//========//========//========
 
-//- before: settings.plugins as described in Options.plugins
-//- after:  settings.plugins := { ($configName: $instance)* }
-function initializePlugins(settings) {
-  let keys = Object.keys(settings.plugins);
+function finalizeDocTocTree(root) {
+  //- do final operations
+}
+
+//========//========//========//========//========//========//========//========
+
+//- before: see description of Options.plugins
+//- after:  settings.plugins := { ($configName: $definition)* }
+//  where definition := { plugin: $instance (, options: $options)?, ...}
+function initializePlugins(options) {
+  let keys = Object.keys(options.plugins);
   
   for(let ix=0, ic=keys.length; ix<ic; ix++) {
-    let configId = keys[ix];
-    let config = settings.plugins[configId];
+    let configName = keys[ix];
+    let definition = options.plugins[configName];
     
     //### turn ($name | $class) into $definition
     
-    if(is.string(config)) {
-      //- name of an integrated plugin
-      config = { plugin: config };
+    if(is.string(definition)) {
+      //- the name of an integrated plugin
+      definition = { plugin: definition };
+      options.plugins[configName] = definition;
     }
     
-    else if(is.fn(config)) {
+    else if(is.fn(definition)) {
       //- a class type function
-      config = { plugin: config };
+      definition = { plugin: definition };
+      options.plugins[configName] = definition;
     }
     
-    else if(!is.object(config)) {
+    else if(!is.object(definition)) {
       throw new Error(util.format(
-        "doctoc: options.plugins[%s] has an invalid value", configId
+        "doctoc: options.plugins[%s] has an invalid value", configName
       ));
     }
     
-    else if(!config.hasOwnProperty("plugin")) {
+    else if(!definition.hasOwnProperty("plugin")) {
       throw new Error(util.format(
-        "doctoc: options.plugins[%s] must have a plugin property", configId
+        "doctoc: options.plugins[%s] must have a plugin property", configName
       ));
     }
     
     //### initialize $definition.plugin
     
-    let plugin = config.plugin;
+    let plugin = definition.plugin;
     
     if(is.string(plugin)) {
-      try {//- name of an integrated plugin
-        plugin = resolvePluginReference(plugin);
+      try {//- the name of an integrated plugin
+        plugin = resolveNameOfIntegratedPlugin(plugin);
+        definition.plugin = plugin;
       } catch(error) {
         throw new Error(util.format(
-          "doctoc: options.plugins[%s].plugin: unknown identifier", configId
+          "doctoc: options.plugins[%s].plugin: unknown identifier", configName
         ));
       }
     }
@@ -105,34 +121,31 @@ function initializePlugins(settings) {
     if(is.fn(plugin)) {
       try {//- a class type function
         plugin = new plugin();
+        definition.plugin = plugin;
       } catch(error) {
         throw new Error(util.format(
-          "doctoc: options.plugins[%s].plugin: failed to initialize", configId
+          "doctoc: options.plugins[%s].plugin: failed to initialize", configName
         ));
       }
     }
     
     if(!is.object(plugin)) {
       throw new Error(util.format(
-        "doctoc: options.plugins[%s].plugin must be an object", configId
+        "doctoc: options.plugins[%s].plugin must be an object", configName
       ));
     }
     
     //### apply $definition.options
     
-    if(config.hasOwnProperty("options")) {
-      plugin.applyDefaultOptions(config.options);
+    if(definition.hasOwnProperty("options")) {
+      plugin.applyDefaultOptions(definition.options);
     }
-    
-    //### replace $config with $definition.plugin
-    
-    settings.plugins[configId] = plugin;
   }//- for
 }
 
 //========//========//========//========//========//========//========//========
 
-function resolvePluginReference(reference) {
+function resolveNameOfIntegratedPlugin(reference) {
   if(reference === "doctoc-default") {
     return require("./PluginDefault.js");
   }
@@ -145,28 +158,26 @@ function resolvePluginReference(reference) {
 
 //returns
 //- false - ignore this file
-//- true - use the default worker with non-file specific options
+//- true - use the default plugin with non-file specific options
 //- config := { config: $configName (, options: $options)? }
-function getFlagValue(filename, file, settings) {
-  if(settings.ignoreFlag) {
-    return true;
+function getFlagValue(filename, file, options) {
+  if(options.ignoreFlag) {
+    return true;//- use the default plugin
   }
   
-  else if(!file.hasOwnProperty(settings.doctocFlag)) {
-    //- ignore this file
-    return false;
+  else if(!file.hasOwnProperty(options.doctocFlag)) {
+    return false;//- ignore this file
   }
   
-  let flagName = settings.doctocFlag;
+  let flagName = options.doctocFlag;
   let flagValue = file[flagName];
   
   if(flagValue === true) {
-    return true;
+    return true;//- use the default plugin
   }
   
   else if (flagValue === false) {
-    //- ignore this file
-    return false;
+    return false;//- ignore this file
   }
   
   else if(is.string(flagValue)) {
@@ -205,27 +216,27 @@ function getFlagValue(filename, file, settings) {
 //- true - default worker with non-file specific options
 //- config := { config: $configName (, options: $options)? }
 //returns
-//- one of the settings.plugins instances
-//  after applying flagValue.options (if available)
-function selectPlugin(filename, flagValue, settings) {
+//- definition := one of the settings.plugins $definition entries
+//- this will also apply flagValue.options (if available)
+function selectConfig(filename, flagValue, options) {
   if(flagValue === true) {
-    flagValue = { config: settings.default };
+    flagValue = { config: options.default };
   }
   
   let configName = flagValue.config;
   
-  if(!settings.plugins.hasOwnProperty(configName)) {
+  if(!options.plugins.hasOwnProperty(configName)) {
     throw new Error(util.format(
       "doctoc [%s]: file[%s].config has an invalid value",
-      filename, settings.doctocFlag
+      filename, options.doctocFlag
     ));
   }
   
-  let plugin =  settings.plugins[configName];
+  let definition = options.plugins[configName];
   
   if(flagValue.hasOwnProperty("options")) {
-    plugin.applyFileOptions(flagValue.options);
+    definition.plugin.applyFileOptions(flagValue.options);
   }
   
-  return plugin;
+  return definition;
 }

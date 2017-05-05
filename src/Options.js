@@ -14,9 +14,10 @@ module.exports = Options;
 //file[options.doctocFlag] := (false | true | $configName | $config)
 //- false := ignore this file
 //- true := use the default worker with non-file specific options
-//- configName := see Options.plugins
-//- config := { config: $configName (, otpions: $options)? }
+//- configName := refers to one of Options.plugins
+//- config := { config: $configName (, options: $options)? }
 //- options := anything accepted by $class.
+//  used as file-specific configuration of the referenced plugin
 
 //========//========//========//========//========//========//========//========
 
@@ -39,14 +40,15 @@ function Options() {
   //- configName := a name associated with $config
   //- config := ($name | $class | $definition)
   //- name := the name of an integrated plugin
-  //  one of: 'doctoc-default'
+  //  currently, the only allowed value is: 'doctoc-default'
   //- class := a class type function, that
   //  must support 'instance = new $class()' expressions,
   //  must have a $class.applyDefaultOptions() function,
   //  must have a $class.run() function
   //- definition := { plugin: $plugin (, options: $options)? }
   //  must have a 'plugin' property,
-  //  may have an 'options' property
+  //  may have an 'options' property,
+  //  any other properties will be ignored
   //- plugin := ($name | $class | $instance)
   //- instance := objects resulting from 'new $class(...)'
   //- options := anything accepted by $class.applyDefaultOptions()
