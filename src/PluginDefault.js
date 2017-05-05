@@ -21,7 +21,13 @@ plugin.prototype.applyDefaultOptions = function(options) {
 
 //========//========//========//========//========//========//========//========
 
-plugin.prototype.run = function(filename, file, options) {
+plugin.prototype.applyFileOptions = function(options) {
+  console.log("applying file options...", instance);
+}
+
+//========//========//========//========//========//========//========//========
+
+plugin.prototype.run = function(filename, file) {
   console.log(util.format(
     "processing file [%s]...", filename), instance);
 };

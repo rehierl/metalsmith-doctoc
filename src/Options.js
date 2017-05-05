@@ -11,6 +11,15 @@ module.exports = Options;
 
 //========//========//========//========//========//========//========//========
 
+//file[options.doctocFlag] := (false | true | $configName | $config)
+//- false := ignore this file
+//- true := use the default worker with non-file specific options
+//- configName := see Options.plugins
+//- config := { config: $configName (, otpions: $options)? }
+//- options := anything accepted by $class.
+
+//========//========//========//========//========//========//========//========
+
 function Options() {
   //- ignore any file that does not match this pattern
   this.pattern = "**";
@@ -26,23 +35,30 @@ function Options() {
   //- acts as if each file had (file.doctocFlag === true)
   this.ignoreFlag = false;
   
+  //- this.plugins := { ($configName: $config)* }
+  //- configName := a name associated with $config
+  //- config := ($name | $class | $definition)
+  //- name := the name of an integrated plugin
+  //  one of: 'doctoc-default'
+  //- class := a class type function, that
+  //  must support 'instance = new $class()' expressions,
+  //  must have a $class.applyDefaultOptions() function,
+  //  must have a $class.run() function
+  //- definition := { plugin: $plugin (, options: $options)? }
+  //  must have a 'plugin' property,
+  //  may have an 'options' property
+  //- plugin := ($name | $class | $instance)
+  //- instance := objects resulting from 'new $class(...)'
+  //- options := anything accepted by $class.applyDefaultOptions()
   this.plugins = {
-    "doctoc-1": "doctoc-default",
-    "doctoc-2": { plugin: "doctoc-default", options: {} },
-    
-    "doctoc-3": require("./PluginDefault.js"),
-    "doctoc-4": { plugin: require("./PluginDefault.js"), options: {} },
-    
-    "doctoc-5": PluginDefault,//- same as 3
-    //"doctoc-6": new PluginDefault({}),//- not allowed
-    "doctoc-7": { plugin: PluginDefault, options: {} },//- same as 4
-    "doctoc-8": { plugin: new PluginDefault({}) },
-    "doctoc-9": { plugin: new PluginDefault({}), options: {} },
+    "default": "doctoc-default"
   };
   
   //- the plugin configuration to use by default
   //- this.plugins[this.default] must exist
-  this.default = "doctoc-1";
+  //- this.plugins must have an entry
+  //  with ($configName == this.default)
+  this.default = "default";
   
   //- to which file metadata property to attach the
   //  table-of-contents tree
