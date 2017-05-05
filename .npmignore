@@ -8,3 +8,7 @@ nbproject
 
 #- ignore github's template folder
 .github
+
+#- ignore the plugin's example folder
+#- explore it on the plugin's github repository
+examples

@@ -147,7 +147,7 @@ function initializePlugins(options) {
 
 function resolveNameOfIntegratedPlugin(reference) {
   if(reference === "doctoc-default") {
-    return require("./PluginDefault.js");
+    return require("./DefaultPlugin.js");
   }
   throw new Error(util.format(
     "doctoc: [%s] is an invalid plugin reference", reference
@@ -235,7 +235,7 @@ function selectConfig(filename, flagValue, options) {
   let definition = options.plugins[configName];
   
   if(flagValue.hasOwnProperty("options")) {
-    definition.plugin.applyFileOptions(flagValue.options);
+    definition.plugin.applyFileOptions(filename, flagValue.options);
   }
   
   return definition;
