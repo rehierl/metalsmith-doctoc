@@ -12,16 +12,22 @@ module.exports = Options;
 //file[options.doctocFlag] := (false | true | $configName | $config)
 //- false := ignore this file
 //- true := use the default worker with non-file specific options
-//- configName := refers to one of Options.plugins
-//- config := { config: $configName (, options: $options)? }
-//- options := anything accepted by $class.
+//- $configName := refers to one of Options.plugins
+//- $config := { config: $configName (, options: $options)? }
+//- $options := anything accepted by $instance.applyFileOptions()
 //  used as file-specific configuration of the referenced plugin
 
 //========//========//========//========//========//========//========//========
 
 function Options() {
-  //- ignore any file that does not match this pattern
+  //- ignore any file that does not multimatch this pattern
+  //- string or an array of strings
   this.pattern = "**";
+
+  //- set true to ignore all doctocFlag values
+  //  and to use the default configuration
+  //- acts as if each file had (file.doctocFlag === true)
+  this.ignoreFlag = false;
 
   //- if a file has a doctocFlag property, then the file is
   //  considered to be marked as "to be processed"
@@ -29,36 +35,37 @@ function Options() {
   //- ignore any file that does not have this property
   this.doctocFlag = "doctoc";
 
-  //- set true to ignore all doctocFlag values
-  //  and to use the default configuration
-  //- acts as if each file had (file.doctocFlag === true)
-  this.ignoreFlag = false;
-
-  //- this.plugins := { ($configName: $config)* }
-  //- configName := a name associated with $config
-  //- config := ($name | $class | $definition)
-  //- name := the name of an integrated plugin
-  //  currently, the only allowed value is: 'doctoc-default'
-  //- class := a class type function, that
-  //  must support 'instance = new $class()' expressions,
-  //  must have a $class.applyDefaultOptions() function,
-  //  must have a $class.run() function
-  //- definition := { plugin: $plugin (, options: $options)? }
-  //  must have a 'plugin' property,
-  //  may have an 'options' property,
-  //  any other properties will be ignored
-  //- plugin := ($name | $class | $instance)
-  //- instance := objects resulting from 'new $class(...)'
-  //- options := anything accepted by $class.applyDefaultOptions()
-  this.plugins = {
-    "default": { plugin: "doctoc-default", options: "h1-6" }
-  };
-
   //- the plugin configuration to use by default
   //- this.plugins[this.default] must exist
   //- this.plugins must have an entry
   //  with ($configName == this.default)
   this.default = "default";
+
+  //- this.plugins := { ($configName: $config)* }
+  //- $configName := associated this name with $config
+  //- $config := ($name | $class | $definition)
+  //- $name := the name of an integrated plugin
+  //  currently, the only allowed value is: 'default'
+  //- $class := a class type function, that
+  //  must support 'instance = new $class()' expressions,
+  //- $definition := { plugin: $plugin (, options: $options)? }
+  //  must have a 'plugin' property,
+  //  may have an 'options' property,
+  //  any other properties will be ignored
+  //- $plugin := ($name | $class | $instance)
+  //- $instance := objects resulting from a 'new $class()' expression
+  //- $options := anything accepted by $class.applyDefaultOptions()
+  this.plugins = {
+    "default": { plugin: "default", options: "h1-6" }
+  };
+  
+  //- ($class|$instance) function(string reference)
+  //- a function used to resolve plugin references
+  //- called if $config or $plugin is a $name and if
+  //  that name does not refer to an integrated plugin
+  //- the most simplistic way to implement such a
+  //  function would be: 'return require(reference)'
+  this.resolveFunc = undefined;
 
   //- to which file metadata property to attach the
   //  table-of-contents tree

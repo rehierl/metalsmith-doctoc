@@ -18,7 +18,7 @@ function Plugin(options) {
   this.optionsDefault = { hMin: 1, hMax: 6 };
   this.optionsCommon = this.optionsDefault;
   this.optionsFile = this.optionsDefault;
-  this.applyCommonOptions(options);
+  this.applyDefaultOptions(options);
   
   this.headings = undefined;
   this.menuTree = undefined;
@@ -26,12 +26,14 @@ function Plugin(options) {
 
 //========//========//========//========//========//========//========//========
 
+//- private
 Plugin.prototype.parseOptionsArg = function(options) {
   return;
 };
 
 //========//========//========//========//========//========//========//========
 
+//- private
 Plugin.prototype.combineOptions = function(defaults, custom) {
   defaults = defaults || {};
   custom = custom || {};
@@ -53,7 +55,9 @@ Plugin.prototype.combineOptions = function(defaults, custom) {
 
 //========//========//========//========//========//========//========//========
 
-Plugin.prototype.applyCommonOptions = function(options) {
+//- public, not required
+//- warning if needed and missing
+Plugin.prototype.applyDefaultOptions = function(options) {
   console.log("applying default options...");
   
   options = this.parseOptionsArg(options);
@@ -65,6 +69,8 @@ Plugin.prototype.applyCommonOptions = function(options) {
 
 //========//========//========//========//========//========//========//========
 
+//- public, not required
+//- warning if needed and missing
 Plugin.prototype.applyFileOptions = function(filename, options) {
   console.log("applying file-specific options...");
   
@@ -77,6 +83,7 @@ Plugin.prototype.applyFileOptions = function(filename, options) {
 
 //========//========//========//========//========//========//========//========
 
+//- public, required
 Plugin.prototype.run = function(filename, file) {
   console.log(util.format("processing file [%s]...", filename));
   let options = this.optionsFile;

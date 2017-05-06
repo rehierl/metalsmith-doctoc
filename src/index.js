@@ -19,7 +19,8 @@ function plugin(userOptions) {
   options.combine(userOptions);
   
   //- after:  settings.plugins := { ($configName: $definition)* }
-  //  where definition := { plugin: $instance (, options: $options)?, ...}
+  //  $definition := { name: $configName,
+  //    plugin: $instance (, options: $options)? }
   initializePlugins(options);
   
   return function main(files, metalsmith, done) {
@@ -30,9 +31,10 @@ function plugin(userOptions) {
       let file = files[filename];
       
       try {
+        //flagValue =
         //- false - ignore this file
         //- true - use the default worker with non-file specific options
-        //- config := { config: $configName (, options: $options)? }
+        //- { config: $configName (, options: $options)? }
         let flagValue = getFlagValue(filename, file, options);
         if(flagValue === false) continue;
 
@@ -45,7 +47,7 @@ function plugin(userOptions) {
         instance.run(filename, file);
         
         //- get/create the menu tree
-        let root = finalizeDocTocTree(filename, instance);
+        let root = getDocTocTree(filename, instance);
         
         //- assign the tree to the selected property
         file[options.doctocTree] = root;
@@ -61,9 +63,10 @@ function plugin(userOptions) {
 
 //========//========//========//========//========//========//========//========
 
-//- before: see description of Options.plugins
+//- before: see definition of Options.plugins
 //- after:  settings.plugins := { ($configName: $definition)* }
-//  where definition := { plugin: $instance (, options: $options)?, ...}
+//  $definition := { name: $configName,
+//    plugin: $instance (, options: $options)? }
 function initializePlugins(options) {
   let keys = Object.keys(options.plugins);
   
@@ -87,27 +90,31 @@ function initializePlugins(options) {
     
     else if(!is.object(definition)) {
       throw new Error(util.format(
-        "doctoc: options.plugins[%s] has an invalid value", configName
+        "doctoc: options.plugins[%s] "
+        + "has an invalid value", configName
       ));
     }
     
     else if(!definition.hasOwnProperty("plugin")) {
       throw new Error(util.format(
-        "doctoc: options.plugins[%s] must have a plugin property", configName
+        "doctoc: options.plugins[%s] "
+        + "must have a plugin property", configName
       ));
     }
     
     //### initialize $definition.plugin
     
+    definition.name = configName;
     let plugin = definition.plugin;
     
     if(is.string(plugin)) {
       try {//- the name of an integrated plugin
-        plugin = resolveNameOfIntegratedPlugin(plugin);
+        plugin = resolvePluginReference(plugin, options);
         definition.plugin = plugin;
       } catch(error) {
         throw new Error(util.format(
-          "doctoc: options.plugins[%s].plugin: unknown identifier\n%s",
+          "doctoc: options.plugins[%s].plugin: "
+          + "unable to resolve plugin reference\n%s",
           configName, error.message
         ));
       }
@@ -119,7 +126,8 @@ function initializePlugins(options) {
         definition.plugin = plugin;
       } catch(error) {
         throw new Error(util.format(
-          "doctoc: options.plugins[%s].plugin: failed to initialize\n%s",
+          "doctoc: options.plugins[%s].plugin: "
+          + "failed to initialize\n%s",
           configName, error.message
         ));
       }
@@ -127,24 +135,35 @@ function initializePlugins(options) {
     
     if(!is.object(plugin)) {
       throw new Error(util.format(
-        "doctoc: options.plugins[%s].plugin must be an object", configName
+        "doctoc: options.plugins[%s].plugin "
+        + "has an invalid value", configName
       ));
     }
     
     //### apply $definition.options
     
     if(definition.hasOwnProperty("options")) {
-      plugin.applyCommonOptions(definition.options);
+      if(plugin.hasOwnProperty("applyDefaultOptions")) {
+        plugin.applyDefaultOptions(definition.options);
+      } else {
+        //- cannot apply the given options
+        //TODO: issue a warning
+      }
     }
   }//- for
 }
 
 //========//========//========//========//========//========//========//========
 
-function resolveNameOfIntegratedPlugin(reference) {
-  if(reference === "doctoc-default") {
+function resolvePluginReference(reference, options) {
+  if(reference === "default") {
     return require("./DefaultPlugin.js");
   }
+  
+  if(options.resolveFunc) {
+    return options.resolveFunc(reference);
+  }
+  
   throw new Error(util.format(
     "doctoc: [%s] is an invalid plugin reference", reference
   ));
@@ -154,18 +173,19 @@ function resolveNameOfIntegratedPlugin(reference) {
 
 //returns
 //- false - ignore this file
-//- true - use the default plugin with non-file specific options
-//- config := { config: $configName (, options: $options)? }
+//- true  - use the default plugin with non-file specific options
+//- { config: $configName (, options: $options)? }
 function getFlagValue(filename, file, options) {
   if(options.ignoreFlag) {
     return true;//- use the default plugin
   }
   
-  else if(!file.hasOwnProperty(options.doctocFlag)) {
+  let flagName = options.doctocFlag;
+  
+  if(!file.hasOwnProperty(options.doctocFlag)) {
     return false;//- ignore this file
   }
   
-  let flagName = options.doctocFlag;
   let flagValue = file[flagName];
   
   if(flagValue === true) {
@@ -182,35 +202,35 @@ function getFlagValue(filename, file, options) {
     return { config: flagValue };
   }
   
-  if(is.object(flagValue)) {
-    if(!flagValue.hasOwnProperty("config")) {
-      throw new Error(util.format(
-        "doctoc [%s]: file[%s] object must have a 'config' property",
-        filename, flagName
-      ));
-    }
-    
-    if(!is.string(flagValue.config)) {
-      throw new Error(util.format(
-        "doctoc [%s]: file[%s].config must be a string value",
-        filename, flagName
-      ));
-    }
-    
-    return flagValue;
+  if(!is.object(flagValue)) {
+    throw new Error(util.format(
+      "doctoc [%s]: file[%s] has an invalid value",
+      filename, flagName
+    ));
   }
   
-  throw new Error(util.format(
-    "doctoc [%s]: file[%s] has an invalid value",
-    filename, flagName
-  ));
+  if(!flagValue.hasOwnProperty("config")) {
+    throw new Error(util.format(
+      "doctoc [%s]: file[%s] object must have a 'config' property",
+      filename, flagName
+    ));
+  }
+
+  if(!is.string(flagValue.config)) {
+    throw new Error(util.format(
+      "doctoc [%s]: file[%s].config must have a string value",
+      filename, flagName
+    ));
+  }
+
+  return flagValue;
 }
 
 //========//========//========//========//========//========//========//========
 
 //flagValue
 //- true - default worker with non-file specific options
-//- config := { config: $configName (, options: $options)? }
+//- { config: $configName (, options: $options)? }
 //returns
 //- definition := one of the settings.plugins $definition entries
 //- this will also apply flagValue.options (if available)
@@ -220,18 +240,26 @@ function selectConfig(filename, flagValue, options) {
   }
   
   let configName = flagValue.config;
+  let plugins = options.plugins;
   
-  if(!options.plugins.hasOwnProperty(configName)) {
+  if(!plugins.hasOwnProperty(configName)) {
     throw new Error(util.format(
-      "doctoc [%s]: file[%s].config has an invalid value",
+      "doctoc [%s].[%s]: invalid config reference",
       filename, options.doctocFlag
     ));
   }
   
-  let definition = options.plugins[configName];
+  let definition = plugins[configName];
   
   if(flagValue.hasOwnProperty("options")) {
-    definition.plugin.applyFileOptions(filename, flagValue.options);
+    let plugin = definition.plugin;
+    
+    if(plugin.hasOwnProperty("applyFileOptions")) {
+      plugin.applyFileOptions(filename, flagValue.options);
+    } else {
+      //- cannot apply the given options
+      //TODO: issue a warning
+    }
   }
   
   return definition;
@@ -239,7 +267,7 @@ function selectConfig(filename, flagValue, options) {
 
 //========//========//========//========//========//========//========//========
 
-function finalizeDocTocTree(filename, instance) {
+function getDocTocTree(filename, instance) {
   //- do final operations
-  return root;
+  return undefined;
 }
