@@ -8,6 +8,7 @@ const multimatch = require("multimatch");
 
 //- require local files
 const Options = require("./Options.js");
+const Proxy = require("./Proxy.js");
 
 //- plugin exports
 module.exports = plugin;
@@ -18,9 +19,7 @@ function plugin(userOptions) {
   const options = new Options();
   options.combine(userOptions);
   
-  //- after:  settings.plugins := { ($configName: $definition)* }
-  //  $definition := { name: $configName,
-  //    plugin: $instance (, options: $options)? }
+  //- after:  settings.plugins := { ($configName: $proxy)* }
   initializePlugins(options);
   
   return function main(files, metalsmith, done) {
@@ -31,23 +30,21 @@ function plugin(userOptions) {
       let file = files[filename];
       
       try {
-        //flagValue =
-        //- false - ignore this file
+        //flagValue := false - ignore this file
         //- true - use the default worker with non-file specific options
         //- { config: $configName (, options: $options)? }
         let flagValue = getFlagValue(filename, file, options);
         if(flagValue === false) continue;
 
-        //- config := one of the settings.plugins $definition entries
-        //- this will also apply flagValue.options (if available)
-        let config = selectConfig(filename, flagValue, options);
-        let instance = config.plugin;
+        //- plugin := one of the options.plugins $proxy entries
+        //- this will also use flagValue.options (if available)
+        let plugin = selectPlugin(filename, flagValue, options);
 
         //- process the current file
-        instance.run(filename, file);
+        plugin.run(filename, file);
         
         //- get/create the menu tree
-        let root = getDocTocTree(filename, instance);
+        let root = plugin.getDocTocTree(filename);
         
         //- assign the tree to the selected property
         file[options.doctocTree] = root;
@@ -64,9 +61,7 @@ function plugin(userOptions) {
 //========//========//========//========//========//========//========//========
 
 //- before: see definition of Options.plugins
-//- after:  settings.plugins := { ($configName: $definition)* }
-//  $definition := { name: $configName,
-//    plugin: $instance (, options: $options)? }
+//- after:  settings.plugins := { ($configName: $proxy)* }
 function initializePlugins(options) {
   let keys = Object.keys(options.plugins);
   
@@ -79,13 +74,11 @@ function initializePlugins(options) {
     if(is.string(definition)) {
       //- the name of an integrated plugin
       definition = { plugin: definition };
-      options.plugins[configName] = definition;
     }
     
     else if(is.fn(definition)) {
       //- a class type function
       definition = { plugin: definition };
-      options.plugins[configName] = definition;
     }
     
     else if(!is.object(definition)) {
@@ -104,13 +97,11 @@ function initializePlugins(options) {
     
     //### initialize $definition.plugin
     
-    definition.name = configName;
     let plugin = definition.plugin;
     
     if(is.string(plugin)) {
       try {//- the name of an integrated plugin
         plugin = resolvePluginReference(plugin, options);
-        definition.plugin = plugin;
       } catch(error) {
         throw new Error(util.format(
           "doctoc: options.plugins[%s].plugin: "
@@ -123,7 +114,6 @@ function initializePlugins(options) {
     if(is.fn(plugin)) {
       try {//- a class type function
         plugin = new plugin();
-        definition.plugin = plugin;
       } catch(error) {
         throw new Error(util.format(
           "doctoc: options.plugins[%s].plugin: "
@@ -140,24 +130,23 @@ function initializePlugins(options) {
       ));
     }
     
-    //### apply $definition.options
+    //### replace $definition
+    
+    plugin = new Proxy(configName, plugin);
     
     if(definition.hasOwnProperty("options")) {
-      if(plugin.hasOwnProperty("applyDefaultOptions")) {
-        plugin.applyDefaultOptions(definition.options);
-      } else {
-        //- cannot apply the given options
-        //TODO: issue a warning
-      }
+      plugin.applyDefaultOptions(definition.options);
     }
+    
+    options.plugins[configName] = plugin;
   }//- for
 }
 
 //========//========//========//========//========//========//========//========
 
 function resolvePluginReference(reference, options) {
-  if(reference === "default") {
-    return require("./DefaultPlugin.js");
+  if(reference === "doctoc-default") {
+    return require("./doctoc-default/Plugin.js");
   }
   
   if(options.resolveFunc) {
@@ -232,9 +221,9 @@ function getFlagValue(filename, file, options) {
 //- true - default worker with non-file specific options
 //- { config: $configName (, options: $options)? }
 //returns
-//- definition := one of the settings.plugins $definition entries
+//- one of the settings.plugins $proxy entries
 //- this will also apply flagValue.options (if available)
-function selectConfig(filename, flagValue, options) {
+function selectPlugin(filename, flagValue, options) {
   if(flagValue === true) {
     flagValue = { config: options.default };
   }
@@ -249,25 +238,12 @@ function selectConfig(filename, flagValue, options) {
     ));
   }
   
-  let definition = plugins[configName];
+  let plugin = plugins[configName];
   
   if(flagValue.hasOwnProperty("options")) {
-    let plugin = definition.plugin;
-    
-    if(plugin.hasOwnProperty("applyFileOptions")) {
-      plugin.applyFileOptions(filename, flagValue.options);
-    } else {
-      //- cannot apply the given options
-      //TODO: issue a warning
-    }
+    let options = flagValue.options;
+    plugin.applyFileOptions(options);
   }
   
-  return definition;
-}
-
-//========//========//========//========//========//========//========//========
-
-function getDocTocTree(filename, instance) {
-  //- do final operations
-  return undefined;
+  return plugin;
 }

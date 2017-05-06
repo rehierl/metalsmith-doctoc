@@ -1,4 +1,6 @@
 
+"use strict";
+
 const is = require("is");
 const util = require("util");
 
@@ -6,19 +8,23 @@ module.exports = Plugin;
 
 //========//========//========//========//========//========//========//========
 
-function Plugin(options) {
-  console.log("initializing plugin...");
-  
+function Plugin(userOptions) {
   if(!(this instanceof Plugin)) {
-    //- don't return undefined if used like "Plugin(options)"
-    //  i.e. without the "new" operator
-    return new Plugin(options);
+    return new Plugin(userOptions);
   }
   
-  this.optionsDefault = { hMin: 1, hMax: 6 };
-  this.optionsCommon = this.optionsDefault;
-  this.optionsFile = this.optionsDefault;
-  this.applyDefaultOptions(options);
+  this.options = {
+    hMin: 1,
+    hMax: 6
+  };
+  
+  this.optionsDefault = this.options;
+  this.optionsFile = this.options;
+  
+  if(userOptions) {
+    //- ignore in case of 'new Plugin()'
+    this.applyDefaultOptions(userOptions);
+  }
   
   this.headings = undefined;
   this.menuTree = undefined;
@@ -28,6 +34,7 @@ function Plugin(options) {
 
 //- private
 Plugin.prototype.parseOptionsArg = function(options) {
+  console.log(options);
   return;
 };
 
@@ -35,35 +42,30 @@ Plugin.prototype.parseOptionsArg = function(options) {
 
 //- private
 Plugin.prototype.combineOptions = function(defaults, custom) {
-  defaults = defaults || {};
-  custom = custom || {};
   let options = {};
   
-  Object.keys(this.optionsDefault).forEach(function(current, index, array) {
-    //- first, take the default value
-    if(defaults.hasOwnProperty(current)) {
-      options[current] = defaults[current];
-    }
-    //- then, override it with the custom value
+  Object.keys(defaults).forEach(function(current, index, array) {
+    //- first, take the default values
+    options[current] = defaults[current];
+
+    //- then, override them with the custom values
     if(custom.hasOwnProperty(current)) {
       options[current] = custom[current];
     }
   });
   
   return options;
-}
+};
 
 //========//========//========//========//========//========//========//========
 
 //- public, not required
 //- warning if needed and missing
 Plugin.prototype.applyDefaultOptions = function(options) {
-  console.log("applying default options...");
-  
   options = this.parseOptionsArg(options);
-  options = this.combineOptions(this.optionsDefault, options);
+  options = this.combineOptions(this.options, options);
   
-  this.optionsCommon = options;
+  this.optionsDefault = options;
   this.optionsFile = options;
 };
 
@@ -72,10 +74,8 @@ Plugin.prototype.applyDefaultOptions = function(options) {
 //- public, not required
 //- warning if needed and missing
 Plugin.prototype.applyFileOptions = function(filename, options) {
-  console.log("applying file-specific options...");
-  
   options = this.parseOptionsArg(options);
-  options = this.combineOptions(this.optionsCommon, options);
+  options = this.combineOptions(this.optionsDefault, options);
   
   options.filename = filename;
   this.optionsFile = options;
@@ -99,12 +99,20 @@ Plugin.prototype.run = function(filename, file) {
   let contents = data.contents;
   
   if(!is.string(contents)) {
+    //- asume contents is some Buffer
     contents = contents.toString('utf8');
   }
   
-  //- use the contents
+  //- use file contents
   
   //- file options should only be used for a single file
   //- reset the file options to the common options
-  this.optionsFile = this.optionsCommon;
+  this.optionsFile = this.optionsDefault;
+};
+
+//========//========//========//========//========//========//========//========
+
+//- public, required
+Plugin.prototype.getDocTocTree = function() {
+  return null;
 };

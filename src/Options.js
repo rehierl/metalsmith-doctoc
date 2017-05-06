@@ -12,7 +12,7 @@ module.exports = Options;
 //file[options.doctocFlag] := (false | true | $configName | $config)
 //- false := ignore this file
 //- true := use the default worker with non-file specific options
-//- $configName := refers to one of Options.plugins
+//- $configName := one of Object.keys(options.plugins)
 //- $config := { config: $configName (, options: $options)? }
 //- $options := anything accepted by $instance.applyFileOptions()
 //  used as file-specific configuration of the referenced plugin
@@ -56,7 +56,7 @@ function Options() {
   //- $instance := objects resulting from a 'new $class()' expression
   //- $options := anything accepted by $class.applyDefaultOptions()
   this.plugins = {
-    "default": { plugin: "default", options: "h1-6" }
+    "default": { plugin: "doctoc-default", options: "h1-6" }
   };
   
   //- ($class|$instance) function(string reference)
