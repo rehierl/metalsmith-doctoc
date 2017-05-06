@@ -51,7 +51,7 @@ function Options() {
   //- instance := objects resulting from 'new $class(...)'
   //- options := anything accepted by $class.applyDefaultOptions()
   this.plugins = {
-    "default": "doctoc-default"
+    "default": { plugin: "doctoc-default", options: "h1-6" }
   };
 
   //- the plugin configuration to use by default

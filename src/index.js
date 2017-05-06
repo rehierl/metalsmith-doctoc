@@ -42,10 +42,10 @@ function plugin(userOptions) {
         let instance = config.plugin;
 
         //- process the current file
-        let root = instance.run(filename, file);
+        instance.run(filename, file);
         
-        //- finalize the tree structure
-        finalizeDocTocTree(root);
+        //- get/create the menu tree
+        let root = finalizeDocTocTree(filename, instance);
         
         //- assign the tree to the selected property
         file[options.doctocTree] = root;
@@ -57,12 +57,6 @@ function plugin(userOptions) {
     
     done();
   };
-}
-
-//========//========//========//========//========//========//========//========
-
-function finalizeDocTocTree(root) {
-  //- do final operations
 }
 
 //========//========//========//========//========//========//========//========
@@ -113,7 +107,8 @@ function initializePlugins(options) {
         definition.plugin = plugin;
       } catch(error) {
         throw new Error(util.format(
-          "doctoc: options.plugins[%s].plugin: unknown identifier", configName
+          "doctoc: options.plugins[%s].plugin: unknown identifier\n%s",
+          configName, error.message
         ));
       }
     }
@@ -124,7 +119,8 @@ function initializePlugins(options) {
         definition.plugin = plugin;
       } catch(error) {
         throw new Error(util.format(
-          "doctoc: options.plugins[%s].plugin: failed to initialize", configName
+          "doctoc: options.plugins[%s].plugin: failed to initialize\n%s",
+          configName, error.message
         ));
       }
     }
@@ -138,7 +134,7 @@ function initializePlugins(options) {
     //### apply $definition.options
     
     if(definition.hasOwnProperty("options")) {
-      plugin.applyDefaultOptions(definition.options);
+      plugin.applyCommonOptions(definition.options);
     }
   }//- for
 }
@@ -239,4 +235,11 @@ function selectConfig(filename, flagValue, options) {
   }
   
   return definition;
+}
+
+//========//========//========//========//========//========//========//========
+
+function finalizeDocTocTree(filename, instance) {
+  //- do final operations
+  return root;
 }

@@ -1,4 +1,0 @@
----
-doctoc: default
----
-contents of test-1.txt

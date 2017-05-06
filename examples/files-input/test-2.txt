@@ -1,6 +1,0 @@
----
-doctoc:
-  config: default
-  options: h1-6
----
-contents of test-2.txt

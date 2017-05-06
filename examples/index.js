@@ -7,7 +7,6 @@
 "use strict";
 
 const metalsmith = require("metalsmith");
-const doctoc = require("../src/index.js");
 
 //========//========//========//========//========
 
@@ -46,11 +45,21 @@ const msi = new metalsmith(basedir)
 //- end the current expression
 ;
 
+const markdown = require("metalsmith-markdownit");
+const doctoc = require("../src/index.js");
+
 //- start a new expression
 msi
 
 .use(function(files, metalsmith, done) {
-  console.log("pre-process");
+  console.log("pre-markdown-it");
+  done();
+})
+
+.use(markdown("commonmark", {}))
+
+.use(function(files, metalsmith, done) {
+  console.log("pre-plugin");
   done();
 })
 
@@ -60,7 +69,7 @@ msi
 }))//*/
 
 .use(function(files, metalsmith, done) {
-  console.log("post-process");
+  console.log("post-plugin");
   done();
 })
 

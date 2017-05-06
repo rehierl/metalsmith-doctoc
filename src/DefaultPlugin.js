@@ -9,31 +9,68 @@ module.exports = Plugin;
 function Plugin(options) {
   console.log("initializing plugin...");
   
-  this.optionsDefault = { hMin: 1, hMax: 6 };
-  this.optionsFile = this.optionsDefault;
+  if(!(this instanceof Plugin)) {
+    //- don't return undefined if used like "Plugin(options)"
+    //  i.e. without the "new" operator
+    return new Plugin(options);
+  }
   
-  this.applyDefaultOptions(options);
+  this.optionsDefault = { hMin: 1, hMax: 6 };
+  this.optionsCommon = this.optionsDefault;
+  this.optionsFile = this.optionsDefault;
+  this.applyCommonOptions(options);
+  
+  this.headings = undefined;
+  this.menuTree = undefined;
 }
 
 //========//========//========//========//========//========//========//========
 
-Plugin.prototype.readOptions = function(options) {
-  
+Plugin.prototype.parseOptionsArg = function(options) {
+  return;
 };
 
 //========//========//========//========//========//========//========//========
 
-Plugin.prototype.applyDefaultOptions = function(options) {
+Plugin.prototype.combineOptions = function(defaults, custom) {
+  defaults = defaults || {};
+  custom = custom || {};
+  let options = {};
+  
+  Object.keys(this.optionsDefault).forEach(function(current, index, array) {
+    //- first, take the default value
+    if(defaults.hasOwnProperty(current)) {
+      options[current] = defaults[current];
+    }
+    //- then, override it with the custom value
+    if(custom.hasOwnProperty(current)) {
+      options[current] = custom[current];
+    }
+  });
+  
+  return options;
+}
+
+//========//========//========//========//========//========//========//========
+
+Plugin.prototype.applyCommonOptions = function(options) {
   console.log("applying default options...");
-  this.optionsDefault = this.readOptions(options);
-  this.optionsFile = this.optionsDefault;
+  
+  options = this.parseOptionsArg(options);
+  options = this.combineOptions(this.optionsDefault, options);
+  
+  this.optionsCommon = options;
+  this.optionsFile = options;
 };
 
 //========//========//========//========//========//========//========//========
 
 Plugin.prototype.applyFileOptions = function(filename, options) {
   console.log("applying file-specific options...");
-  options = this.readOptions(options);
+  
+  options = this.parseOptionsArg(options);
+  options = this.combineOptions(this.optionsCommon, options);
+  
   options.filename = filename;
   this.optionsFile = options;
 };
@@ -60,5 +97,7 @@ Plugin.prototype.run = function(filename, file) {
   
   //- use the contents
   
-  this.optionsFile = this.optionsDefault;
+  //- file options should only be used for a single file
+  //- reset the file options to the common options
+  this.optionsFile = this.optionsCommon;
 };
