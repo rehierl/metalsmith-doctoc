@@ -106,9 +106,10 @@ Plugin.prototype.run = function(filename, file) {
     let h = list[ix];
     
     list[ix] = {
-      level: h.level,
+      tag: h.tag,
       id: h.id,
-      contents: h.contents
+      contents: h.contents,
+      level: h.level
     };
   }
   
