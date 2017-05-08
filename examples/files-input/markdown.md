@@ -1,3 +1,6 @@
+---
+doctoc: true
+---
 
 always a h1 heading
 ===

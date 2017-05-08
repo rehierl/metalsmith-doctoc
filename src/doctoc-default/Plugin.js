@@ -4,6 +4,8 @@
 const is = require("is");
 const util = require("util");
 
+const Options = require("./Options.js");
+
 module.exports = Plugin;
 
 //========//========//========//========//========//========//========//========
@@ -13,60 +15,30 @@ function Plugin(userOptions) {
     return new Plugin(userOptions);
   }
   
-  this.options = {
-    hMin: 1,
-    hMax: 6
-  };
+  //- used as default/base options when
+  //  applying plugin-specific settings
+  this.options = new Options();
+  this.options.combine(userOptions);
   
+  //- used as default/base options when
+  //  applying file-specific settings
   this.optionsDefault = this.options;
+  
+  //- used when processing a file
   this.optionsFile = this.options;
   
-  if(userOptions) {
-    //- ignore in case of 'new Plugin()'
-    this.applyDefaultOptions(userOptions);
-  }
-  
-  this.headings = undefined;
-  this.menuTree = undefined;
+  //return;
 }
-
-//========//========//========//========//========//========//========//========
-
-//- private
-Plugin.prototype.parseOptionsArg = function(options) {
-  console.log(options);
-  return;
-};
-
-//========//========//========//========//========//========//========//========
-
-//- private
-Plugin.prototype.combineOptions = function(defaults, custom) {
-  let options = {};
-  
-  Object.keys(defaults).forEach(function(current, index, array) {
-    //- first, take the default values
-    options[current] = defaults[current];
-
-    //- then, override them with the custom values
-    if(custom.hasOwnProperty(current)) {
-      options[current] = custom[current];
-    }
-  });
-  
-  return options;
-};
 
 //========//========//========//========//========//========//========//========
 
 //- public, not required
 //- warning if needed and missing
 Plugin.prototype.applyDefaultOptions = function(options) {
-  options = this.parseOptionsArg(options);
-  options = this.combineOptions(this.options, options);
-  
-  this.optionsDefault = options;
-  this.optionsFile = options;
+  let clone = this.options.clone();
+  clone.combine(options);
+  this.optionsDefault = clone;
+  this.optionsFile = clone;
 };
 
 //========//========//========//========//========//========//========//========
@@ -74,11 +46,10 @@ Plugin.prototype.applyDefaultOptions = function(options) {
 //- public, not required
 //- warning if needed and missing
 Plugin.prototype.applyFileOptions = function(filename, options) {
-  options = this.parseOptionsArg(options);
-  options = this.combineOptions(this.optionsDefault, options);
-  
-  options.filename = filename;
-  this.optionsFile = options;
+  let clone = this.optionsDefault.clone();
+  clone.combine(options);
+  clone.filename = filename;
+  this.optionsFile = clone;
 };
 
 //========//========//========//========//========//========//========//========
@@ -95,8 +66,7 @@ Plugin.prototype.run = function(filename, file) {
     assert(options.filename === filename, "invalid call");
   }
   
-  let data = file.contents;
-  let contents = data.contents;
+  let contents = file.contents;
   
   if(!is.string(contents)) {
     //- asume contents is some Buffer
@@ -104,6 +74,7 @@ Plugin.prototype.run = function(filename, file) {
   }
   
   //- use file contents
+  console.log(contents);
   
   //- file options should only be used for a single file
   //- reset the file options to the common options

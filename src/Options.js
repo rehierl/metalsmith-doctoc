@@ -1,6 +1,4 @@
 
-/* global Infinity */
-
 "use strict";
 
 const is = require("is");
