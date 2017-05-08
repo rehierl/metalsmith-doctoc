@@ -20,13 +20,6 @@ function Proxy(configName, plugin) {
     ));
   }
   
-  if( !is.fn(plugin["getDocTocTree"])) {
-    throw new Error(util.format(
-      "doctoc: options.plugins[%s]: missing 'getDocTocTree' function",
-      configName
-    ));
-  }
-  
   this.configName = configName;
   this.plugin = plugin;
 }
@@ -59,12 +52,17 @@ Proxy.prototype.applyFileOptions = function(options) {
 
 //- public, required
 Proxy.prototype.run = function(filename, file) {
-  this.plugin.run(filename, file);
+  let tree = this.plugin.run(filename, file);
+  
+  if(is.array(tree)) {
+    tree = this.createTreeFromList(tree);
+  }
+  
+  return tree;
 };
 
 //========//========//========//========//========//========//========//========
 
-//- public, required
-Proxy.prototype.getDocTocTree = function(filename) {
-  return null;
+Proxy.prototype.createTreeFromList = function(list) {
+  return false;
 };

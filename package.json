@@ -1,5 +1,5 @@
 {
-  "version": "1.0.0",
+  "version": "0.0.1",
   "name": "metalsmith-doctoc",
   "description": "A metalsmith plugin to ...",
   "homepage": "https://github.com/rehierl/metalsmith-doctoc",

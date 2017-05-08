@@ -41,12 +41,12 @@ function plugin(userOptions) {
         let plugin = selectPlugin(filename, flagValue, options);
 
         //- process the current file
-        plugin.run(filename, file);
-        
-        //- get/create the menu tree
-        let root = plugin.getDocTocTree(filename);
+        let root = plugin.run(filename, file);
         
         //- assign the tree to the selected property
+        //- false - the document had no content that could be
+        //  used to create a menu tree
+        //- root - the root node of the document's menu tree
         file[options.doctocTree] = root;
       } catch(error) {
         done(error);
