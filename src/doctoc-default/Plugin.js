@@ -56,6 +56,17 @@ Plugin.prototype.applyFileOptions = function(filename, options) {
 
 //========//========//========//========//========//========//========//========
 
+//- public, not required
+Plugin.prototype.getProxyOptions = function() {
+  return {
+    buildTree: true,
+    normalizeLevels: true,
+    finalizeTree: true
+  };
+};
+
+//========//========//========//========//========//========//========//========
+
 //- public, required
 Plugin.prototype.run = function(filename, file) {
   let options = this.optionsFile;

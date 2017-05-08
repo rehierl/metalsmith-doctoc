@@ -1,4 +1,6 @@
 
+/* global Infinity */
+
 "use strict";
 
 const is = require("is");
@@ -91,26 +93,6 @@ Options.prototype.combine = function(userOptions) {
     //- properties are tested if, and only if,
     //  they exist *and* if their value is not undefined
     let value = undefined;
-
-    //- options.fileLimit
-
-    if(userOptions.hasOwnProperty("fileLimit")) {
-      value = userOptions.fileLimit;
-
-      if(!is.int(value)) {
-        throw new TypeError("options.fileLimit must be an integer value");
-      }
-
-      if(value === Infinity) {
-        value = 0;
-      } else if(value === -Infinity) {
-        value = 0;
-      } else if(value < 0) {
-        value = 0;
-      }
-
-      userOptions.fileLimit = value;
-    }
 
     //- options.doctocFlag
 

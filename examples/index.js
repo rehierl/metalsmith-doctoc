@@ -4,6 +4,7 @@
 "use strict";
 
 const metalsmith = require("metalsmith");
+const util = require("util");
 
 //========//========//========//========//========
 
@@ -44,6 +45,7 @@ const msi = new metalsmith(basedir)
 
 const markdown = require("metalsmith-markdownit");
 const doctoc = require("../src/index.js");
+const attach = require("./ex-attach.js");
 
 //- start a new expression
 msi
@@ -62,8 +64,18 @@ msi
 
 //*
 .use(doctoc({
-  //- use the default settings
+  pattern: "**",
+  ignoreFlag: false,
+  doctocFlag: "doctoc",
+  "default": "default",
+  plugins: {
+    "default": { plugin: "doctoc-default", options: "h1-6" }
+  },
+  resolveFunc: undefined,
+  doctocTree: "doctoc"
 }))//*/
+
+.use(attach)
 
 .use(function(files, metalsmith, done) {
   console.log("post-plugin");
