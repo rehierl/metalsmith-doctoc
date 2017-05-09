@@ -1,12 +1,14 @@
 {
   "version": "0.0.1",
   "name": "metalsmith-doctoc",
-  "description": "A metalsmith plugin to ...",
+  "description": "A Metalsmith plugin to generate table-of-contents menus.",
   "homepage": "https://github.com/rehierl/metalsmith-doctoc",
   "keywords": [
     "metalsmith",
+    "frontmatter",
     "doctoc",
-    "frontmatter"
+    "table-of-contents",
+    "toc"
   ],
   "author": "Reinhardt Hierl",
   "license": "MIT",
