@@ -3,7 +3,8 @@ metalsmith-doctoc
 ===============
 
 Please be aware that, as long as this plugin's version begins with '0.',
-**I consider this to be a 'Beta' version.** This means that essential parts may
+**I consider this to be a 'Beta' version.** This means that it should basically
+work, but still needs some editing/review/testing. So essential parts may still
 change without further notice. Please open an issue on github if you have any
 suggestions.
 
@@ -24,12 +25,12 @@ used in combination with template engines to render TOC menus into your files.
 
 ## TODO
 
-- Need to think about reworking errors:
+- Need to think about better dealing with errors:
   Currently, this plugin will throw simple exceptions.
   Any way to support inner exceptions?
-- Options.combine() needs to validate user values.
-- Need to properly test and describe differences when using 'require' in
-  combination with Options.resolveFunc().
+- Options.combine() still needs to validate user values.
+- Need to properly test and describe differences when using
+  'require' in combination with Options.resolveFunc().
 
 ## Installation
 
@@ -140,7 +141,7 @@ Options.plugins if a $name value is supported.
 ### "doctoc-default"
 
 This is the integrated, default lightweight plugin for 'metalsmith-doctoc'. It
-will be used if you assign the string "doctoc-default" to '$name'; see
+will be used if you assign the string "doctoc-default" in place of '$name' inside
 'Options.plugins'.
 
 'doctoc-default' is intended to be run after Markdown files have been converted
@@ -148,11 +149,10 @@ into HTML files. In general, these kind of HTML files, don't have any deep
 structure worth mentioning. They merely hold a "flat" sequence of HTML tags;
 i.e. they usually don't contain any &lt;div&gt; tags.
 
-So what this default plugin does is to use regular expressions to search for
-headings (&lt;h1&gt; to &lt;h6&gt;) and assign id values to them if needed; i.e.
-this default plugin won't add any anchors (&lt;a&gt;) to your content files.
-It will then return a list of headings to 'metalsmith-doctoc' for further
-processing.
+This default plugin uses regular expressions to search for headings (&lt;h1&gt;
+to &lt;h6&gt;) tags and assigns id values to them if needed; i.e. this default
+plugin won't add any anchors (&lt;a&gt;) to your content files. It will then
+return a list of headings to 'metalsmith-doctoc' for further processing.
 
 ## List of LPs
 
@@ -160,7 +160,7 @@ processing.
 
 If you have implemented a plugin to be used with 'metalsmith-doctoc', please
 name it using 'metalsmith-doctoc-' as prefix. This will allow your plugin to be
-easily found by searching on
+easily found by searching on 
 [npmjs](https://www.npmjs.com/search?q=metalsmith-doctoc-).
 
 ## Plugins API
@@ -203,7 +203,7 @@ function Plugin(userOptions) {
 }
 ```
 
-Note that 'metalsmith-doctoc' implements a proxy, which wraps up any leightweight
+Note that 'metalsmith-doctoc' implements a proxy, which wraps up any lightweight
 plugin. This proxy will handle all cases in which any of the above optional
 functions are missing. The 'Plugin.run()' function must return an object, which
 holds run's result and contains meta-information about the result. The proxy
@@ -240,6 +240,9 @@ RunResponse {
 }
 ```
 
+If RunResponse.isHeadingsList is set, RunResponse.result is expected to be
+an array of Heading objects:
+
 ```js
 Heading {
   //- set to 'h1' in case of a <h1> tag
@@ -248,21 +251,21 @@ Heading {
 
   //- set to $id in case of a <h1 id='$id'> tag
   //- if no id is available, one must be generated
+  //  and the file's contents must be changed accordingly
   this.id = $id;
 
   //- set to $contents in case of <h1>$contents</h1>
+  //- this value will essentially be used to describe
+  //  a link.
   this.contents = $contents;
 
   //- set to 2 in case of <h2>
-  //- this does not have to be the final value
-  //  see ProxyConfig.normalizeLevls
   this.level = $level;
 }
 ```
 
-* Notice: If 'Plugin.run()' returns an array of 'Heading' objects, then
-'Plugin.getProxyConfig()' should set all fields inside it's 'ProxyConfig'
-response.
+In any other cases, RunResponse.result is expected to be a Node object;
+more precisely, the topmost (root) node of a node tree.
 
 ```js
 Node {
@@ -276,13 +279,23 @@ Node {
   this.contents = $contents;
 
   //- see Heading.level
+  //- (this.level+X == this.parent.level)
+  //  must be true for some X in [1,+Infinity)
+  //- (this.level+1 == this.parent.level)
+  //  may be true, but does not have to be!
+  //- see RunResponse.dontNormalizeLevelValues
   this.level = $level;
 
-  //- set to match the node's parent node
+  //- set to point to the node's parent node
+  //- there must be a value 'i' such that
+  //  (this.parent.children[i] = this)
+  //- only the root node must assign undefined
+  //  to this property.
   this.parent = Node;
 
-  //- for each child in Node*, the following must hold
-  //  (child.parent == this).
+  //- for each node in children, the following
+  //  must be true: (node.parent == this)
+  //  for each node in this array.
   this.children = [ Node* ];
 
   //- optional
@@ -308,9 +321,10 @@ Node {
 }
 ```
 
-* Notice: If 'next', 'previous', 'childrenAll' are omitted, then
-'Plugin.getProxyConfig()' should set the 'finalizeTree' field inside
-it's 'ProxyConfig' response. 
+You may omit node.next, node.previous and node.childrenAll if you don't set
+RunResponse.dontFinalizeNodes to true. If your plugin has set these properties,
+then you must set dontFinalizeNodes to true, or otherwise the proxy will
+overwrite these properties.
 
 ## License
 
