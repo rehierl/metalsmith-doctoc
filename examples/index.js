@@ -72,7 +72,7 @@ msi
   
   plugins: {
     "default": {
-      plugin: "asdf",
+      plugin: "doctoc-default",
       options: "h1-6"
     }
   },

@@ -2,9 +2,10 @@
 metalsmith-doctoc
 ===============
 
-**Please be aware that, as long as this plugin's version begins with '0.',
-I consider it to be a 'Beta' version. This means that essential parts may change
-without further notice.**
+Please be aware that, as long as this plugin's version begins with '0.',
+**I consider this to be a 'Beta' version.** This means that essential parts may
+change without further notice. Please open an issue on github if you have any
+suggestions.
 
 If you know 'metalsmith-autotoc'
 ([npmjs](https://www.npmjs.com/package/metalsmith-autotoc),
@@ -23,7 +24,12 @@ used in combination with template engines to render TOC menus into your files.
 
 ## TODO
 
-- 
+- Need to think about reworking errors:
+  Currently, this plugin will throw simple exceptions.
+  Any way to support inner exceptions?
+- Options.combine() needs to validate user values.
+- Need to properly test and describe differences when using 'require' in
+  combination with Options.resolveFunc().
 
 ## Installation
 
@@ -122,7 +128,16 @@ Options {
 * Notice: 'Options.plugins[X].options' are default options, which will be passed
 on to the plugin specified by 'Options.plugins[X].plugin'.
 
-## doctoc-default
+## Integrated plugins
+
+'metalsmith-doctoc' comes with the following lightweight plugins (LPs). These
+allow to use this plugin right off the start. Their main purpose though is to
+showcase how to implement and use your own LPs.
+
+In order to use these, simply specify their name (e.g. "doctoc-default") inside
+Options.plugins if a $name value is supported.
+
+### "doctoc-default"
 
 This is the integrated, default lightweight plugin for 'metalsmith-doctoc'. It
 will be used if you assign the string "doctoc-default" to '$name'; see
@@ -139,10 +154,7 @@ this default plugin won't add any anchors (&lt;a&gt;) to your content files.
 It will then return a list of headings to 'metalsmith-doctoc' for further
 processing.
 
-But the main purpose of this default plugin is to showcase how to implement your
-own lightweight plugin.
-
-## List of Plugins
+## List of LPs
 
 * What is it's name? : What will it do?
 
@@ -159,21 +171,15 @@ this structure itself. The main advantage for you is that you don't have to
 take care of all the surroundings (options) and that you can concentrate on
 what your plugin is actually supposed to do.
 
-You don't want to create a menu tree yourself? That's ok, just let your
-'Plugin.run()' function return an array of 'Heading' objects and
-'metalsmith-doctoc' will do the rest if you configure your
-'Plugin.getProxyOptions()' method accordingly.
-
 Take a look at the './src/doctoc-default' subfolder on
 [github]()
-for an example of how to easily implement a lightweight plugin for
-'metalsmith-doctoc'.
+for an example of how to implement a lightweight plugin for 'metalsmith-doctoc'.
 
 ```js
 function Plugin(userOptions) {
   //- no properties are required or accessed.
-  //- interaction with plugins is using methods.
-  this.property = value;
+  //- interaction with plugins is done using methods.
+  //this.any_property = value;
 
   //- optional
   //- void function(anything)
@@ -189,55 +195,50 @@ function Plugin(userOptions) {
   //  it's value will be passed on to this function
   //- when options are found and this function is missing,
   //  a waring will be issued
-  function applyFileOptions(options){ ... };
+  function applyFileOptions(filename, options){ ... };
 
   //- required
-  //- $result function(string, object)
-  //- $result := ($headings | $root)
-  //- $headings := an array of $Heading objects
-  //- $root := the topmost node of a $Node tree.
+  //- RunResponse function(string, object)
   function run(filename, file){ ... };
-
-  //- optional
-  //- $ProxyOptions function()
-  //- the return value will tell the proxy what to do
-  //  with run's $result.
-  function getProxyOptions(){ ... };
 }
 ```
 
 Note that 'metalsmith-doctoc' implements a proxy, which wraps up any leightweight
 plugin. This proxy will handle all cases in which any of the above optional
-functions are missing. The 'Plugin.getProxyOptions()' function is intended as
-an upstream response (i.e. from your plugin to the proxy) in order to configure
-how the proxy will treat the return value of your 'Plugin.run()' method.
-
-$ProxyOptions must be an object that defines the following properties:
+functions are missing. The 'Plugin.run()' function must return an object, which
+holds run's result and contains meta-information about the result. The proxy
+uses this meta-data to determine if the plugin's actual result needs further
+processing. run's response object must have the following structure:
 
 ```js
-ProxyOptions {
-  //- if this property evaluates to boolean 'true',
-  //  run's $result is expected to match $headings.
-  //  i.e. a list of $Heading objects.
-  this.buildTree = false;
+RunResponse {
+  //- required
+  //- $result = ($headings | $root)
+  //- $headings = [ Heading* ]
+  //  i.e. an array of Heading objects
+  //- $root = Node
+  //  i.e. the topmost node of a node tree
+  this.result = $result;
 
-  //- if this property evaluates to boolean 'true',
-  //  the proxy makes sure that for all nodes the
-  //  following condition holds:
-  //  (node2.level+1 == node1.level), if (and only if)
-  //  (node2.parent = node1).
-  this.normalizeLevels = false;
+  //- optional
+  //- set true, if response.result is a $headings array
+  //- the proxy will replace result's value with a $root
+  this.isHeadingsList = false;
 
-  //- if this property evaluates to boolean 'true',
-  //  the proxy will finalize the menu tree; i.e. it
-  //  will add .next, .previous, .childrenAll properties
-  //  to all nodes and set them accordingly
-  this.finalizeTree = false;
+  //- optional
+  //- set true to not normalize all node level values
+  //- 'normalized' means that for all nodes,
+  //  the following is true: (parent.level = child.level-1),
+  //  if (and only if) (child.parent = parent)
+  this.dontNormalizeLevelValues = false;
+
+  //- optional
+  //- set true to not let the proxy set the following
+  //  properties for all node objects:
+  //  node.next, node.previous, node.childrenAll
+  this.dontFinalizeNodes = false;
 }
 ```
-
-* Notice: A plugin may only support 'Plugin.run()', if it will return the
-root node of a fully specified node tree.
 
 ```js
 Heading {
@@ -254,13 +255,13 @@ Heading {
 
   //- set to 2 in case of <h2>
   //- this does not have to be the final value
-  //  see ProxyOptions.normalizeLevls
+  //  see ProxyConfig.normalizeLevls
   this.level = $level;
 }
 ```
 
 * Notice: If 'Plugin.run()' returns an array of 'Heading' objects, then
-'Plugin.getProxyOptions()' should set all fields inside it's 'ProxyOptions'
+'Plugin.getProxyConfig()' should set all fields inside it's 'ProxyConfig'
 response.
 
 ```js
@@ -308,8 +309,8 @@ Node {
 ```
 
 * Notice: If 'next', 'previous', 'childrenAll' are omitted, then
-'Plugin.getProxyOptions()' should set the 'finalizeTree' field inside
-it's 'ProxyOptions' response. 
+'Plugin.getProxyConfig()' should set the 'finalizeTree' field inside
+it's 'ProxyConfig' response. 
 
 ## License
 

@@ -16,10 +16,11 @@ function Proxy(configName, plugin) {
   this.configName = configName;
   this.plugin = plugin;
   
-  if( !is.fn(plugin["run"])) {
+  if(!is.fn(plugin["run"])) {
     throw new Error(util.format(
-      "doctoc: options.plugins[%s]: plugin is missing the 'run' function",
-      this.configName
+      "doctoc: options.plugins[%s]: "
+      + "plugin does not have a 'run' method",
+      configName
     ));
   }
 }
@@ -39,9 +40,9 @@ Proxy.prototype.applyDefaultOptions = function(options) {
 //========//========//========//========//========//========//========//========
 
 //- public, required
-Proxy.prototype.applyFileOptions = function(options) {
+Proxy.prototype.applyFileOptions = function(filename, options) {
   if(is.fn(this.plugin["applyFileOptions"])) {
-    this.plugin.applyFileOptions(options);
+    this.plugin.applyFileOptions(filename, options);
   } else {
     //- cannot apply the given options
     //TODO: issue a warning
@@ -50,56 +51,49 @@ Proxy.prototype.applyFileOptions = function(options) {
 
 //========//========//========//========//========//========//========//========
 
-//- private
-Proxy.prototype.getProxyOptions = function() {
-  if(is.fn(this.plugin["getProxyOptions"])) {
-    return this.plugin.getProxyOptions();
-  }
-  
-  return {
-    //- set true to tell the proxy that run's result
-    //  is a list of heading entries and that it needs
-    //  to use this list to create the menu tree
-    buildTree: false,
-    
-    //- set true to tell the proxy to normalize
-    //  the node level values in such way that
-    //  nP.level = nC.level-1, iif nP.children[ nC ]
-    normalizeLevels: false,
-    
-    //- set true to tell the proxy that the menu
-    //  tree's nodes need to be finalized
-    finalizeTree: false
-  };
-};
-
-//========//========//========//========//========//========//========//========
-
 //- public, required
 Proxy.prototype.run = function(filename, file) {
-  let root = this.plugin.run(filename, file);
-  let options = this.getProxyOptions();
+  let response = this.plugin.run(filename, file);
   
-  if(options.buildTree) {
-    root = this.buildTree(root);
-  }
-  
-  if(!is.object(root)) {
+  if(!is.object(response)) {
     throw new Error(util.format(
-      "doctoc: options.plugins[%s]: didn't return a tree or didn't set "
-      + "the 'buildTree' option", this.configName
+      "doctoc: options.plugins[%s]: "
+      + "run's response wasn't an object",
+      this.configName
     ));
   }
   
-  if(options.normalizeLevels) {
-    this.normalizeLevels(root);
+  if(!response.hasOwnProperty("result")) {
+    throw new Error(util.format(
+      "doctoc: options.plugins[%s]: "
+      + "run's response doesn't have a 'result' property",
+      this.configName
+    ));
   }
   
-  if(options.finalizeTree) {
-    this.finalizeTree(root);
+  let result = response.result;
+  
+  if(response.isHeadingsList) {
+    if(!is.array(result)) {
+      throw new Error(util.format(
+        "doctoc: options.plugins[%s]: "
+        + "run's response has response.isHeadingsArray set, but "
+        + "response.result isn't an array",
+        this.configName
+      ));
+    }
+    result = this.createNodesFromHeadings(result);
   }
   
-  return root;
+  if(!response.dontNormalizeLevelValues) {
+    this.normalizeLevelValues(result);
+  }
+  
+  if(!response.dontFinalizeNodes) {
+    this.finalizeNodes(result);
+  }
+  
+  return result;
 };
 
 //========//========//========//========//========//========//========//========
@@ -119,7 +113,7 @@ Proxy.prototype.run = function(filename, file) {
 //- $children := [ $node* ] := all direct child nodes that are one or more steps
 //  lower into the hierarchy in such way, that (nC.parent=nP if nP.children=[nC])
 //  and (nC.level-X == nP.level) for some X in [+1,+Infinity]
-Proxy.prototype.buildTree = function(list) {
+Proxy.prototype.createNodesFromHeadings = function(list) {
   let nodes = [];
   
   //### initialize the nodes
@@ -188,7 +182,7 @@ Proxy.prototype.buildTree = function(list) {
 
 //- make sure that nP.level = nC.level-X for X in [1]
 //  so not just any value in [+1,+Infinity]
-Proxy.prototype.normalizeLevels = function(root) {
+Proxy.prototype.normalizeLevelValues = function(root) {
   let buffer = [ root ];
   
   while(buffer.length > 0) {
@@ -205,7 +199,7 @@ Proxy.prototype.normalizeLevels = function(root) {
 
 //- set/fill the .next, .previous, .childrenAll properties
 //  of each menu node
-Proxy.prototype.finalizeTree = function(root) {
+Proxy.prototype.finalizeNodes = function(root) {
   let buffer = [ root ];
   
   //- build the buffer in such way that for each nY=buffer[Y]

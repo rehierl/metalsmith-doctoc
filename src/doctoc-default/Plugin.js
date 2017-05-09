@@ -113,17 +113,9 @@ Plugin.prototype.run = function(filename, file) {
     };
   }
   
-  return list;
-};
-
-//========//========//========//========//========//========//========//========
-
-//- public, not required
-Plugin.prototype.getProxyOptions = function() {
   return {
-    buildTree: true,
-    normalizeLevels: true,
-    finalizeTree: true
+    result: list,
+    isHeadingsList: true
   };
 };
 
