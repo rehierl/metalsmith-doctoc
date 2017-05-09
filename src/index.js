@@ -19,7 +19,9 @@ function plugin(userOptions) {
   const options = new Options();
   options.combine(userOptions);
   
-  //- after:  settings.plugins := { ($configName: $proxy)* }
+  //- after this call:
+  //  settings.plugins := { ($configName: $proxy)* }
+  //  i.e. each plugins entry holds a plugin proxy object
   initializePlugins(options);
   
   return function main(files, metalsmith, done) {
@@ -30,7 +32,8 @@ function plugin(userOptions) {
       let file = files[filename];
       
       try {
-        //flagValue := false - ignore this file
+        //flagValue
+        //- false - ignore this file
         //- true - use the default worker with non-file specific options
         //- { config: $configName (, options: $options)? }
         let flagValue = getFlagValue(filename, file, options);

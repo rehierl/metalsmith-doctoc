@@ -55,7 +55,9 @@ msi
   done();
 })
 
-.use(markdown("commonmark", {}))
+.use(markdown("commonmark", {
+  /* use only default options */
+}))
 
 .use(function(files, metalsmith, done) {
   console.log("pre-plugin");
@@ -67,22 +69,30 @@ msi
   pattern: "**",
   ignoreFlag: false,
   doctocFlag: "doctoc",
-  "default": "default",
+  
   plugins: {
-    "default": { plugin: "doctoc-default", options: "h1-6" }
+    "default": {
+      plugin: "asdf",
+      options: "h1-6"
+    }
   },
-  resolveFunc: undefined,
+  
+  "default": "default",
+  resolveFunc: require,
   doctocTree: "doctoc"
 }))//*/
+
+.use(function(files, metalsmith, done) {
+  console.log("pre-examples");
+  done();
+})
 
 .use(attach)
 
 .use(function(files, metalsmith, done) {
-  console.log("post-plugin");
+  console.log("pre-build");
   done();
 })
-
-//========//========//========//========//========
 
 //- run metalsmith's build process
 .build(function(error, files) {

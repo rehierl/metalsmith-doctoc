@@ -3,7 +3,7 @@
 #- https://docs.npmjs.com/misc/developers#keeping-files-out-of-your-package
 #- auto-ignores "./node_modules/", "./.git/"
 
-#- ignore the NetBeans project folder
+#- ignore NetBeans' project folder
 nbproject
 
 #- ignore github's template folder

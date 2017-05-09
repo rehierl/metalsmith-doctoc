@@ -24,53 +24,62 @@ function Options() {
   //- string or an array of strings
   this.pattern = "**";
 
-  //- set true to ignore all doctocFlag values
-  //  and to use the default configuration
-  //- acts as if each file had (file.doctocFlag === true)
+  //- if a file has a doctocFlag metadata property, the file
+  //  is considered to be marked as "to be processed".
+  //- assign the boolean value 'true' to use the default plugin.
+  //- any file that does not have this property will be ignored.
+  this.doctocFlag = "doctoc";
+
+  //- assign the boolean value 'true' to ignore any doctocFlag
+  //  metadata property and to use the default plugin
+  //- this will act as if each file had (file[doctocFlag] == true)
   this.ignoreFlag = false;
 
-  //- if a file has a doctocFlag property, then the file is
-  //  considered to be marked as "to be processed"
-  //- set true to use the default configuration
-  //- ignore any file that does not have this property
-  this.doctocFlag = "doctoc";
+  //- plugins := { ($configName: $config)* }
+  //  i.e. the plugins option holds named configurations
+  //- $configName := a name associated with this $config
+  //- $config := ($name | $class | $definition)
+  //  i.e. either a $name, a $class, or a $definition
+  //- $name := the name of an integrated plugin.
+  //  currently, only "doctoc-default" is supported.
+  //  Options.resolveFunc($name) will be executed in case
+  //  a name is not supported.
+  //- $class := a class type function, that must support
+  //  '$instance = new $class()' expressions.
+  //- $definition := { plugin: $plugin, (, options: $options)? }
+  //  there must be a $plugin property, but there may be
+  //  an optional $options property. any other property will
+  //  be ignored.
+  //- $plugin := ($name | $class | $instance)
+  //  i.e. either a $name, a $class function, or an $instance
+  //- $instance := objects returned by a 'new $class()' expression
+  //- $options := anything that is accepted by the plugin's
+  //  $class.applyDefaultOptions() method.
+  this.plugins = {
+    "default": { plugin: "doctoc-default", options: "h1-6" }
+  };
 
   //- the plugin configuration to use by default
   //- this.plugins[this.default] must exist
   //- this.plugins must have an entry
   //  with ($configName == this.default)
   this.default = "default";
-
-  //- this.plugins := { ($configName: $config)* }
-  //- $configName := associated this name with $config
-  //- $config := ($name | $class | $definition)
-  //- $name := the name of an integrated plugin
-  //  currently, the only allowed value is: 'default'
-  //- $class := a class type function, that
-  //  must support 'instance = new $class()' expressions,
-  //- $definition := { plugin: $plugin (, options: $options)? }
-  //  must have a 'plugin' property,
-  //  may have an 'options' property,
-  //  any other properties will be ignored
-  //- $plugin := ($name | $class | $instance)
-  //- $instance := objects resulting from a 'new $class()' expression
-  //- $options := anything accepted by $class.applyDefaultOptions()
-  this.plugins = {
-    "default": { plugin: "doctoc-default", options: "h1-6" }
-  };
   
-  //- ($class|$instance) function(string reference)
-  //- a function used to resolve plugin references
-  //- called if $config or $plugin is a $name and if
-  //  that name does not refer to an integrated plugin
-  //- the most simplistic way to implement such a
-  //  function would be: 'return require(reference)'
+  //- a function that has the following signature:
+  //  ($class | $instance) function(string $name)
+  //- assign a function that resolves the given $name
+  //  to a $class function or a plugin $instance
+  //- a "resolveFunc = require," could work if require()
+  //  is able to find the given plugin
+  //- "resolveFunc = function(name){ return require(name); }
+  //  is the same except that require() will use a different
+  //  folder to begin with.
   this.resolveFunc = undefined;
 
-  //- to which file metadata property to attach the
-  //  table-of-contents tree
-  //- which will replace the value of file[doctocFlag] if
-  //  (options.doctocFlag === options.doctocTree)!
+  //- to which file metadata property to attach the resulting
+  //  table-of-contents tree.
+  //- this will replace the value of file[doctocFlag] if
+  //  (options.doctocFlag == options.doctocTree)!
   this.doctocTree = "doctoc";
 };
 

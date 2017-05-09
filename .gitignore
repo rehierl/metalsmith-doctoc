@@ -3,8 +3,8 @@
 #- https://help.github.com/articles/ignoring-files
 #- https://git-scm.com/docs/gitignore
 
-#- ignore the NetBeans project folder
+#- ignore NetBeans' project folder
 nbproject
 
-#- ignore the npm package folder
+#- ignore npm's package folder
 node_modules
