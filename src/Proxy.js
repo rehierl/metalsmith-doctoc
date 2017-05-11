@@ -3,6 +3,7 @@
 
 const is = require("is");
 const util = require("util");
+const debug = require("debug")("metalsmith-doctoc");
 
 module.exports = Proxy;
 
@@ -32,8 +33,10 @@ Proxy.prototype.applyDefaultOptions = function(options) {
   if(is.fn(this.plugin["applyDefaultOptions"])) {
     this.plugin.applyDefaultOptions(options);
   } else {
-    //- cannot apply the given options
-    //TODO: issue a warning
+    debug(util.format(
+      "proxy for [%s]: unable to apply the options from the configuration",
+      this.configName
+    ));
   }
 };
 
@@ -44,8 +47,10 @@ Proxy.prototype.applyFileOptions = function(filename, options) {
   if(is.fn(this.plugin["applyFileOptions"])) {
     this.plugin.applyFileOptions(filename, options);
   } else {
-    //- cannot apply the given options
-    //TODO: issue a warning
+    debug(util.format(
+      "proxy for [%s]: unable to apply the options from file [%s]",
+      this.configName, filename
+    ));
   }
 };
 
@@ -71,10 +76,10 @@ Proxy.prototype.run = function(filename, file) {
     ));
   }
   
-  let result = response.result;
+  let root = undefined;
   
   if(response.isHeadingsList) {
-    if(!is.array(result)) {
+    if(!is.array(response.result)) {
       throw new Error(util.format(
         "doctoc: options.plugins[%s]: "
         + "run's response has response.isHeadingsArray set, but "
@@ -82,18 +87,20 @@ Proxy.prototype.run = function(filename, file) {
         this.configName
       ));
     }
-    result = this.createNodesFromHeadings(result);
+    root = this.createNodesFromHeadings(response.result);
+  } else {
+    root = response.result;
   }
   
   if(!response.dontNormalizeLevelValues) {
-    this.normalizeLevelValues(result);
+    this.normalizeLevelValues(root);
   }
   
   if(!response.dontFinalizeNodes) {
-    this.finalizeNodes(result);
+    this.finalizeNodes(root);
   }
   
-  return result;
+  return root;
 };
 
 //========//========//========//========//========//========//========//========
@@ -127,6 +134,9 @@ Proxy.prototype.createNodesFromHeadings = function(list) {
     children: []
   });
   
+  let root = nodes[0];
+  root.root = root;
+  
   for(let ix=0, ic=list.length; ix<ic; ix++) {
     let h = list[ix];
     
@@ -135,6 +145,7 @@ Proxy.prototype.createNodesFromHeadings = function(list) {
       id: h.id,
       contents: h.contents,
       level: h.level,
+      root: root,
       parent: undefined,
       children: []
     });

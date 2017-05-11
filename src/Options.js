@@ -4,12 +4,14 @@
 "use strict";
 
 const is = require("is");
+const util = require("util");
 
 module.exports = Options;
 
 //========//========//========//========//========//========//========//========
 
-//file[options.doctocFlag] := (false | true | $configName | $config)
+//file[options.doctocFlag] := $value
+//- $value := (false | true | $configName | $config)
 //- false := ignore this file
 //- true := use the default worker with non-file specific options
 //- $configName := one of Object.keys(options.plugins)
@@ -22,7 +24,7 @@ module.exports = Options;
 function Options() {
   //- ignore any file that does not multimatch this pattern
   //- string or an array of strings
-  this.pattern = "**";
+  this.filter = "**";
 
   //- if a file has a doctocFlag metadata property, the file
   //  is considered to be marked as "to be processed".
@@ -65,6 +67,15 @@ function Options() {
   //  with ($configName == this.default)
   this.default = "default";
   
+  //- when metalsmith-doctoc concludes that $name is
+  //  not the name of an integrated plugin, it will
+  //  try to execute options.resolveFunc($name)
+  //- set this property to boolean 'true' to let
+  //  metalsmith-doctoc try to execute require($name)
+  //  before options.resolveFunc($name) is executed
+  //- define options.resovleFunc if you use this property!
+  this.enableRequire = false;
+
   //- a function that has the following signature:
   //  ($class | $instance) function(string $name)
   //- assign a function that resolves the given $name
@@ -85,40 +96,65 @@ function Options() {
 
 //========//========//========//========//========//========//========//========
   
-Options.prototype.combine = function(userOptions) {
+Options.prototype.combine = function(options) {
   {//- acceptance of non-object arguments
     if(arguments.length === 0) {
       //- don't use any non-default options
-      userOptions = {};
+      options = {};
     }
   }
 
-  //- now, userOptions must be an object
-  if(!is.object(userOptions)) {
+  //- from now on, options must be an object
+  if(!is.object(options)) {
     throw new TypeError("invalid options argument");
   }
 
-  {//- validation of userOptions properties
-    //- properties are tested if, and only if,
-    //  they exist *and* if their value is not undefined
-    let value = undefined;
-
-    //- options.doctocFlag
-
-    if(userOptions.hasOwnProperty("doctocFlag")) {
-      value = userOptions.doctocFlag;
-
-      if(!is.string(value)) {
-        throw new TypeError("options.doctocFlag must be a string");
+  {//- do some basic validation of options
+    //- non-empty string values
+    ["doctocFlag", "default", "doctocTree"]
+    .forEach(function(current, index, array) {
+      if(options.hasOwnProperty(current)) {
+        if(!isString(options[current])) {
+          throw new Error(util.format(
+            "options.%s must be anon-empty string", current
+          ));
+        }
       }
-
-      value = value.trim();
-
-      if(value.length <= 0) {
-        throw new TypeError("options.doctocFlag must be a non-empty string");
+    });
+    
+    //- boolean values
+    ["ignoreFlag", "enableRequire"]
+    .forEach(function(current, index, array) {
+      if(options.hasOwnProperty(current)) {
+        if(!isBool(options[current])) {
+          throw new Error(util.format(
+            "options.%s must be anon-empty string", current
+          ));
+        }
       }
-
-      userOptions.doctocFlag = value;
+    });
+    
+    let key = undefined;
+    
+    key = "filter";
+    if(options.hasOwnProperty(key)) {
+      if(!isString(options[key]) && !isStringArray(options[key])) {
+        throw new Error("options.filter must be a string or an array of strings");
+      }
+    }
+    
+    key = "plugins";
+    if(options.hasOwnProperty(key)) {
+      if(!is.object(options[key])) {
+        throw new Error("options.plugins must be an object");
+      }
+    }
+    
+    key = "resolveFunc";
+    if(options.hasOwnProperty(key)) {
+      if(!is.fn(options[key])) {
+        throw new Error("options.resolveFunc must be a function");
+      }
     }
   }
 
@@ -126,11 +162,53 @@ Options.prototype.combine = function(userOptions) {
     let thisInstance = this;
 
     Object.keys(this).forEach(function(current, index, array) {
-      //- if userOptions has a property, then use it;
+      //- if options has a property, then use it;
       //  this incldues any 'undefined' values
-      if(userOptions.hasOwnProperty(current)) {
-        thisInstance[current] = userOptions[current];
+      if(options.hasOwnProperty(current)) {
+        thisInstance[current] = options[current];
       }
     });
   }
 };
+
+//========//========//========//========//========//========//========//========
+
+function isBool(value) {
+  if(value === true) {
+    return true;
+  }
+  if(value === false) {
+    return true;
+  }
+  return false;
+}
+
+//========//========//========//========//========//========//========//========
+
+function isString(value) {
+  if(!is.string(value)) {
+    return false;
+  }
+  
+  if(value.trim().length === 0) {
+    return false;
+  }
+  
+  return true;
+}
+
+//========//========//========//========//========//========//========//========
+
+function isStringArray(value) {
+  if(!is.array(value)) {
+    return false;
+  }
+  
+  for(let ix=0, ic=value.length; ix<ic; ix++) {
+    if(!isString(value[ix])) {
+      return false;
+    }
+  }
+  
+  return true;
+}

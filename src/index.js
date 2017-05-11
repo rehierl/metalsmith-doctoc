@@ -25,7 +25,7 @@ function plugin(userOptions) {
   initializePlugins(options);
   
   return function main(files, metalsmith, done) {
-    let keys = multimatch(Object.keys(files), options.pattern);
+    let keys = multimatch(Object.keys(files), options.filter);
     
     for(let ix=0, ic=keys.length; ix<ic; ix++) {
       let filename = keys[ix];
@@ -109,11 +109,13 @@ function initializePlugins(options) {
       try {//- the name of an integrated plugin
         plugin = resolvePluginReference(reference, options);
       } catch(error) {
-        throw new Error(util.format(
+        let newError = new Error(util.format(
           "doctoc: options.plugins[%s].plugin: "
-          + "failed to resolve the given plugin reference\n%s",
-          configName, error.message
+          + "failed to resolve the given plugin reference",
+          configName
         ));
+        newError.innerError = error;
+        throw newError;
       }
       
       if(!is.fn(plugin) && !is.object(plugin)) {
@@ -129,11 +131,13 @@ function initializePlugins(options) {
       try {//- a class type function
         plugin = new plugin();
       } catch(error) {
-        throw new Error(util.format(
+        let newError = new Error(util.format(
           "doctoc: options.plugins[%s].plugin: "
-          + "failed to initialize the given plugin\n%s",
-          configName, error.message
+          + "failed to initialize the given plugin",
+          configName
         ));
+        newError.innerError = error;
+        throw newError;
       }
     }
     
@@ -165,6 +169,19 @@ function resolvePluginReference(reference, options) {
   
   if(reference === "doctoc-default") {
     return require("./doctoc-default/Plugin.js");
+  }
+  
+  if(options.enableRequire === true) {
+    try {
+      return require(reference);
+    } catch(error) {
+      if(options.resolveFunc) {
+        //- ignore this error here and hope that the user
+        //  solves this issue in resolveFunc()
+      } else {
+        throw error;
+      }
+    }
   }
   
   //### not an integrated plugin
