@@ -34,7 +34,8 @@ Proxy.prototype.applyDefaultOptions = function(options) {
     this.plugin.applyDefaultOptions(options);
   } else {
     debug(util.format(
-      "proxy for [%s]: unable to apply the options from the configuration",
+      "doctoc options.plugins[%s]: "
+      + "unable to apply the options from the configuration",
       this.configName
     ));
   }
@@ -48,7 +49,8 @@ Proxy.prototype.applyFileOptions = function(filename, options) {
     this.plugin.applyFileOptions(filename, options);
   } else {
     debug(util.format(
-      "proxy for [%s]: unable to apply the options from file [%s]",
+      "doctoc options.plugins[%s]: "
+      + "unable to apply the options from file [%s]",
       this.configName, filename
     ));
   }
@@ -58,11 +60,11 @@ Proxy.prototype.applyFileOptions = function(filename, options) {
 
 //- public, required
 Proxy.prototype.run = function(filename, file) {
-  let response = this.plugin.run(filename, file);
+  const response = this.plugin.run(filename, file);
   
   if(!is.object(response)) {
     throw new Error(util.format(
-      "doctoc: options.plugins[%s]: "
+      "doctoc options.plugins[%s]: "
       + "run's response wasn't an object",
       this.configName
     ));
@@ -70,7 +72,7 @@ Proxy.prototype.run = function(filename, file) {
   
   if(!response.hasOwnProperty("result")) {
     throw new Error(util.format(
-      "doctoc: options.plugins[%s]: "
+      "doctoc options.plugins[%s]: "
       + "run's response doesn't have a 'result' property",
       this.configName
     ));
@@ -78,7 +80,16 @@ Proxy.prototype.run = function(filename, file) {
   
   let root = undefined;
   
-  if(response.isHeadingsList) {
+  if(!response.isHeadingsList) {
+    root = response.result;
+
+    if(response.dontFinalizeNodes) {
+      //- do a full validation
+    } else {
+      //- do a semi validation
+      this.finalizeNodes(root);
+    }
+  } else {
     if(!is.array(response.result)) {
       throw new Error(util.format(
         "doctoc: options.plugins[%s]: "
@@ -88,16 +99,16 @@ Proxy.prototype.run = function(filename, file) {
       ));
     }
     root = this.createNodesFromHeadings(response.result);
-  } else {
-    root = response.result;
+    this.finalizeNodes(root);
   }
   
   if(!response.dontNormalizeLevelValues) {
-    this.normalizeLevelValues(root);
-  }
-  
-  if(!response.dontFinalizeNodes) {
-    this.finalizeNodes(root);
+    const ic = root.childrenAll.length;
+    
+    for(let ix=0; ix<ic; ix++) {
+      const node = root.childrenAll[ix];
+      node.level = node.parent.level+1;
+    }
   }
   
   return root;
@@ -105,15 +116,14 @@ Proxy.prototype.run = function(filename, file) {
 
 //========//========//========//========//========//========//========//========
 
-//input
-//- a flat list of heading entries in order of appearance
-//- list = [ $heading ]
+//@param list
+//- an array of Heading entries in order of appearance
 //- $heading := { tag: $tag, id: $id, contents: $contents, level: $level }
 //- $tag := the html tag taken from the html content; e.g. "h1" in case of "<h1>"
 //- $id := the value of the html element's id attribute
 //- $contents := anything that was found in between "<hX>" and "</hX>"
 //- $level := the level number of a heading; e.g. 2 in case of "<h2>"
-//output
+//@returns
 //- the root node of the menu tree
 //- node := extend($heading, { parent: $parent, children: $children })
 //- $parent := the next node one or more steps, higher in the hierarchy
@@ -121,31 +131,59 @@ Proxy.prototype.run = function(filename, file) {
 //  lower into the hierarchy in such way, that (nC.parent=nP if nP.children=[nC])
 //  and (nC.level-X == nP.level) for some X in [+1,+Infinity]
 Proxy.prototype.createNodesFromHeadings = function(list) {
-  let nodes = [];
+  const nodes = [];
   
   //### initialize the nodes
   
-  nodes.push({
-    tag: "h0",
-    id: "root",
-    contents: "",
+  const root = {
+    heading: undefined,
     level: 0,
     parent: undefined,
     children: []
-  });
+  };
   
-  let root = nodes[0];
-  root.root = root;
+  nodes.push(root);
   
   for(let ix=0, ic=list.length; ix<ic; ix++) {
-    let h = list[ix];
+    const h = list[ix];
+    
+    if(!is.object(h)) {
+      throw new Error(util.format(
+        "doctoc options.plugins[%s]: "
+        + "returned a non-object heading entry",
+        this.configName
+      ));
+    }
+    
+    if(!h.hasOwnProperty("level")) {
+      throw new Error(util.format(
+        "doctoc options.plugins[%s]: "
+        + "returned a heading without level property",
+        this.configName
+      ));
+    }
+    
+    const level = h.level;
+    
+    if(!is.number(level)) {
+      throw new Error(util.format(
+        "doctoc options.plugins[%s]: "
+        + "returned a heading with an invalid level property",
+        this.configName
+      ));
+    }
+    
+    if(level <= 0) {
+      throw new Error(util.format(
+        "doctoc options.plugins[%s]: "
+        + "returned a heading with an invalid level property",
+        this.configName
+      ));
+    }
     
     nodes.push({
-      tag: h.tag,
-      id: h.id,
-      contents: h.contents,
-      level: h.level,
-      root: root,
+      heading: h,
+      level: level,
       parent: undefined,
       children: []
     });
@@ -154,13 +192,13 @@ Proxy.prototype.createNodesFromHeadings = function(list) {
   //### interconnect the nodes
   
   for(let ix=1, ic=nodes.length; ix<ic; ix++) {
-    let nX = nodes[ix-1];
-    let nY = nodes[ix];
+    const nX = nodes[ix-1];
+    const nY = nodes[ix];
     
     //- nX higher in hierarchy than nY
     if(nX.level < nY.level) {
-      nY.parent = nX;
       nX.children.push(nY);
+      nY.parent = nX;
       continue;
     }
     
@@ -170,7 +208,7 @@ Proxy.prototype.createNodesFromHeadings = function(list) {
     let nP = nX.parent;
     
     while(true) {//- find the parent node
-      //- this should never happen because of the root node
+      //- because of root, this should never happen
       //console.assert(nP !== undefined, "internal error");
       
       if(nP.level < nY.level) {
@@ -186,24 +224,7 @@ Proxy.prototype.createNodesFromHeadings = function(list) {
   
   //### return the tree
   
-  return nodes[0];
-};
-
-//========//========//========//========//========//========//========//========
-
-//- make sure that nP.level = nC.level-X for X in [1]
-//  so not just any value in [+1,+Infinity]
-Proxy.prototype.normalizeLevelValues = function(root) {
-  let buffer = [ root ];
-  
-  while(buffer.length > 0) {
-    let node = buffer.pop();
-    for(let ix=0, ic=node.children.length; ix<ic; ix++) {
-      let child = node.children[ix];
-      child.level = child.parent.level + 1;
-      buffer.push(child);
-    }
-  }
+  return root;
 };
 
 //========//========//========//========//========//========//========//========
@@ -211,7 +232,7 @@ Proxy.prototype.normalizeLevelValues = function(root) {
 //- set/fill the .next, .previous, .childrenAll properties
 //  of each menu node
 Proxy.prototype.finalizeNodes = function(root) {
-  let buffer = [ root ];
+  const buffer = [ root ];
   
   //- build the buffer in such way that for each nY=buffer[Y]
   //  node, there is a nX=buffer[X] node where
@@ -221,8 +242,9 @@ Proxy.prototype.finalizeNodes = function(root) {
   //  have been visited before
   
   for(let ix=0; ix<buffer.length; ix++) {
-    let node = buffer[ix];
+    const node = buffer[ix];
     
+    node.root = root;
     node.next = undefined;
     node.previous = undefined;
     node.childrenAll = [];
@@ -237,7 +259,7 @@ Proxy.prototype.finalizeNodes = function(root) {
   //  work your way up to the root
   
   for(let ix=buffer.length-1; ix>=0; ix--) {
-    let node = buffer[ix];
+    const node = buffer[ix];
     
     //- interconnect the child nodes
     for(let jx=1, jc=node.children.length; jx<jc; jx++) {
@@ -247,7 +269,7 @@ Proxy.prototype.finalizeNodes = function(root) {
     
     //- add all child nodes to node.childrenAll
     for(let jx=0, jc=node.children.length; jx<jc; jx++) {
-      let child = node.children[jx];
+      const child = node.children[jx];
       node.childrenAll.push(child);
       
       for(let kx=0, kc=child.childrenAll.length; kx<kc; kx++) {

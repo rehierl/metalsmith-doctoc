@@ -2,31 +2,31 @@
 metalsmith-doctoc
 ===============
 
-If you know 'metalsmith-autotoc'
-([npmjs](https://www.npmjs.com/package/metalsmith-autotoc),
-[github](https://github.com/anatoo/metalsmith-autotoc)),
-then you already know what this plugin will essentially do. The only (big)
-difference is that 'metalsmith-doctoc' will allow you to use lightweight plugins
-(LPs) to configure how your TOCs will be generated from your source files.
-
-So the main purpose of this Metalsmith
-([npmjs](https://www.npmjs.com/package/metalsmith),
-[github](https://github.com/segmentio/metalsmith))
-plugin is to provide a framework for LPs. 'metalsmith-doctoc' will invoke these
-LPs for each file they are assigned to, which they analyze in order to extract
-a table-of-contents (TOC) menu tree. These TOC menu trees can then be used in
-combination with a template engine to render TOC menus into your files.
-
-## TODO
-
 Please be aware that, as long as this plugin's version begins with '0.',
 **I consider this to be a 'Beta' version.** This means that it should basically
 work, but still needs some editing/review/testing. So essential parts may change
 without further notice. Please open an issue on github if you have any suggestions.
 
-- check plugin results ?!?
-- Need to properly test and describe differences when using
-  'require' in combination with Options.resolveFunc().
+If you know 'metalsmith-autotoc'
+([npmjs](https://www.npmjs.com/package/metalsmith-autotoc),
+[github](https://github.com/anatoo/metalsmith-autotoc)),
+then you already know what this plugin will do. The only (big) difference is
+that 'metalsmith-doctoc' **(MDT)** will allow you to use lightweight plugins
+**(LPs)** to configure how your TOCs will be generated from your source files.
+
+So the main purpose of this Metalsmith
+([npmjs](https://www.npmjs.com/package/metalsmith),
+[github](https://github.com/segmentio/metalsmith))
+plugin is to provide a framework for LPs. MDT will invoke these LPs for each
+file they are configured for, which they analyze in order to generate a
+table-of-contents **(TOC)** menu tree. These TOC menu trees can then be used in
+combination with a template engine to render menus into your files.
+
+## TODO
+
+- write a proper readme for 'doctoc-default'
+- test require() with Options.resolveFunc()
+- validation of menu trees returned by plugins
 
 ## Installation
 
@@ -36,7 +36,8 @@ npm install metalsmith-doctoc
 
 ## Overview
 
-In general you will use YAML frontmatter to mark your files as to be processed:
+In general you will use YAML frontmatter to define properties that mark your
+files as "to be processed":
 
 ```
 ---
@@ -45,13 +46,14 @@ doctoc-flag: default
 file content
 ```
 
-By defining a "doctoc-flag" frontmatter property you configure a file to be
-processed. When such a file is encountered, metalsmith-doctoc will use the
-property's value to determine which plugin configuration to use in order to
-process that file. In the above case, "default" refers to a named configuration
-that needs to be defined via metalsmith-doctoc's options:
+When such a file is encountered, MDT will use the property's value to determine
+which LP configuration to use in order to process that file. In the above case,
+"default" refers to a named configuration that MDT needs to look up inside it's
+options object:
 
 ```js
+const doctoc = require('metalsmith-doctoc');
+
 .use(doctoc({
   filter: "**",
   docotocFlag: "doctoc-flag",
@@ -60,92 +62,90 @@ that needs to be defined via metalsmith-doctoc's options:
     "default": { plugin: "doctoc-default", options: "h1-6" }
   },
   default: "default",
+  enableRequire: false,
   doctocTree: "doctoc-tree"
 })
 ```
 
-This essentially tells metalsmith-doctoc to initialize the integrated plugin
-"doctoc-default" and make it accessible via the name "default". This will also
-initialize the integrated plugin with the default setting "h1-6".
+This essentially tells MDT to initialize the integrated LP "doctoc-default" and
+make it use-able via the name "default". This will also initialize the
+integrated LP with the default options "h1-6".
 
-When metalsmith's pipeline is run, metalsmith-doctoc will execute the integrated
-plugin when it encounters that file. doctoc-default will then extract the file's
-table-of-contents and generate a menu tree. Once it receives that tree,
-metalsmith-doctoc will then assign it to the file's "doctoc-tree" property.
+When metalsmith's pipeline is run, MDT will then execute the integrated LP when
+it encounters that file. 'doctoc-default' will then extract the file's TOC
+and generate a menu tree. Once it receives that tree, MDT will then assign it
+to the file's 'doctoc-tree' property.
 
 ## Options
+
+The options object that MDT will accept is as follows:
 
 ```js
 Options {
   //- a multimatch pattern to select which files to process.
-  //- a string, or an array of pattern strings.
+  //- a string, or an array of multimatch strings.
   //- files that don't match (any pattern) will be ignored.
   filter: "**",
 
-  //- if a file has a doctocFlag frontmatter property, the file
-  //  is considered to be marked as "to be processed".
-  //- any file that does not have this property will be ignored.
+  //- if a file has a doctocFlag property, the file
+  //  is marked as "to be processed".
+  //- any file that does not define this property
+  //  will be ignored.
   doctocFlag: "doctoc",
 
-  //- set the boolean value 'true' to ignore any doctocFlag
+  //- assign the boolean value 'true' to ignore any doctocFlag
   //  frontmatter property and to use the default configuration
   //- this is equivalent to assigning a doctocFlag frontmatter
   //  property to all files and setting their value to true.
   ignoreFlag: false,
 
   //- plugins := { ($configName: $config)* }
-  //  i.e. the plugins option holds named configurations
+  //  i.e. the plugins property holds named configurations.
   //- $configName := a name associated with this $config
   //- $config := ($name | $class | $definition)
   //  i.e. either a $name, a $class, or a $definition
   //- $name := the name of an integrated plugin.
-  //  currently, only "doctoc-default" is supported.
-  //  see "Integrated Plugins" for a list of which names
-  //  are supported. Options.resolveFunc($name) will be
-  //  executed if a name is not supported.
+  //  see section "Integrated Plugins" for a list of which
+  //  names are supported. Options.resolveFunc($name) will
+  //  be executed if a name is not supported.
   //- $class := a class type function, that must support
   //  '$instance = new $class()' expressions.
   //- $definition := { plugin: $plugin (, options: $options)? }
-  //  there must be a 'plugin' property,
-  //  but the 'option' property is optional.
+  //  i.e. there must be a plugin property,
+  //  but the option property is optional.
   //  any other additional property will be ignored.
   //- $plugin := ($name | $class | $instance)
   //  i.e. either a $name, a $class function, or an $instance
-  //- $instance := objects returned by 'new $class()'
-  //- $options := anything that is accepted by the plugin's
+  //- $instance := objects returned by 'new $class(...)'
+  //- $options := anything that is allowed by the plugin's
   //  $class.applyDefaultOptions() method.
   plugins: {
     "default": { plugin: "doctoc-default", options: "h1-6" }
   },
 
-  //- defines the configuration to use by default.
+  //- this marks the configuration to use by default.
   //  e.g. if (file[doctocFlag] == true)
-  //- options.plugins must have an entry with
+  //- obviously, options.plugins must have an entry with
   //  ($configName == options.default),
   default: "default",
 
   //- when metalsmith-doctoc concludes that $name is
   //  not the name of an integrated plugin, it will
-  //  try to execute options.resolveFunc($name)
-  //- set this property to boolean 'true' to let
-  //  metalsmith-doctoc try to execute require($name)
-  //  before options.resolveFunc($name) is executed
-  //- define options.resovleFunc if you use this property!
+  //  try to execute options.resolveFunc($name).
+  //- set this property to boolean true to allow
+  //  metalsmith-doctoc to try executing require($name)
+  //  before executing options.resolveFunc($name).
   enableRequire: false,
 
   //- ($class | $instance) function(string $name)
-  //- assign a function that resolves the given $name
+  //- assign a function that will resolve the given $name
   //  to a $class function, or a plugin $instance
-  //- a "resolveFunc = require," could work if require()
-  //  is able to find the given plugin
-  //- "resolveFunc = function(name){ return require(name); }
-  //  is similar, but will most probably use a different
-  //  folder from which it will start it's search.
-  //- don't specify, if you don't provide a function!
+  //- if you don't return a $class or an $instance, it
+  //  will be assumed that the function failed to resolve
+  //  $name as a reference to a plugin
   resolveFunc: undefined,
 
-  //- to which file metadata property to attach the resulting
-  //  table-of-contents tree.
+  //- to which file property to attach the resulting tree.
   //- this will replace the value of file[doctocFlag],
   //  if (options.doctocFlag == options.doctocTree)!
   doctocTree: "doctoc"
@@ -156,98 +156,120 @@ Options {
 
 ### file[options.doctocFlag]
 
-This file property is expected to have the following $value:
-
 ```js
+file[options.doctocFlag] = $value
 //- $value := (false | true | $configName | $config)
 //- false := ignore this file
-//- true := use metalsmith-doctoc's default configuration
+//- true := use the default options.plugins configuration
 //- $configName := one of the names used in options.plugins
 //- $config := { config: $configName (, options: $options )? }
-//  there must be a 'config' property,
-//  but there may be an optional 'options' property.
+//  i.e. there must be a config property,
+//  but there may be an optional options property.
 //  any other additional property will be ignored.
-//- $options := anything that is accepted by the plugin's
-//  $class.applyFileOptions() method.
+//- $options := anything that is allowed by the plugin's
+//  $class.applyFileOptions($options) method.
 ```
 
 ### file[options.doctocTree]
 
-This file property will hold an instance of a node object;
-more precisely, the topmost (root) node of the node tree.
+```js
+file[options.doctocTree] = $root
+//- $root := the topmost node of the menu tree
+```
+
+This file property will hold an instance of a node object:
 
 ```js
 Node {
-  //- a string value
-  //- e.g. 'h1' in case of a <h1> tag
-  tag: $tag,
+  //- required
+  //- a Heading object
+  //- (root.heading == undefined)
+  heading: $heading
 
-  //- a string value
-  //- e.g. '$id' in case of a <h1 id='$id'> tag
-  //- if $id was missing, one will be generated and
-  //  the file's contents will be modified accordingly
-  id: $id,
-
-  //- a string value
-  //- i.e. $contents from <h1>$contents</h1>
-  //- this value will be used as the link's description
-  contents: $contents,
-
-  //- a number value in [+0,+Infinity)
-  //- root.level will always be 0; and
-  //  (node.level > root.level) for all other nodes
-  //- (this.level == this.parent.level+X)
+  //- required
+  //- a number from [+0,+Infinity)
+  //- (node.level == node.parent.level+X)
   //  must be true for some X in [+1,+Infinity)
   //  i.e. X does not have to be +1!
+  //- (root.level == 0) and (node.level >= 1)
+  //  for any other node object
   level: $level,
 
+  //- optional
   //- the topmost node of the current node tree.
-  //- root.root = root (circular!)
+  //- (root.root == root); i.e. circular!
   root: Node?
 
+  //- required
   //- set to point to the node's parent node
-  //- there must be a value 'i' such that
-  //  (this.parent.children[i] = this)
-  //- this property will be undefined
-  //  if there is no such parent node;
-  //  i.e. (root.parent == undefined)
+  //- (node.parent.children[i] == node)
+  //- (root.parent == undefined)
   parent: Node?,
 
-  //- the next sibling node such that
-  //- (node.next == node.next.previous)
-  //- (node.level == node.next.level)
+  //- optional
+  //- the next sibling such that
   //- if (node == node.parent.children[i]), then
   //  (node.next == node.parent.children[i+1]),
   //- this property will be undefined
-  //  if there is no such sibling node
+  //  if there is no such node
+  //- (root.next == undefined)
   next: Node?,
 
-  //- the previous sibling node such that
-  //- (node.next == node.next.previous)
-  //- (node.level == node.previous.level)
+  //- optional
+  //- the previous sibling such that
   //- if (node == node.parent.children[i]), then
   //  (node.previous == node.parent.children[i-1])
   //- this property will be undefined
-  //  if there is no such sibling node
+  //  if there is no such node
+  //- (root.previous == undefined)
   previous: Node?,
 
-  //- for each node in children, the following
-  //  must be true: (node.parent == this)
-  //  for each node in this array.
+  //- required
+  //- all direct child nodes of this node
+  //  i.e. (node.children[i].parent == node)
   children: [ Node* ],
 
-  //- all direct and indirect child nodes in the
-  //  current sub-tree in order of appearance.
+  //- optional
+  //- all direct and indirect child nodes of the
+  //  sub-tree defined by the current node
   childrenAll: [ Node* ]
+}
+```
+
+Note that the actual properties of the node.heading object is not relevant to
+MDT and must be defined/documented by the LP used to generate these objects:
+
+```js
+Heading {
+  //- optional
+  //- set to 'hX' for each <hX> tag
+  //- e.g. 'h1' in case of a <h1> tag
+  //- for debugging purposes only
+  tag: $tag,
+
+  //- optional
+  //- e.g. '$id' in case of a <h1 id='$id'> tag
+  //- if no id is available, one must be generated and
+  //  the file's contents must be modified accordingly
+  id: $id,
+
+  //- optional
+  //- set to $title for "<h1>$title</h1>"
+  //- this value will be used as a link's title.
+  title: $title,
+
+  //- optional/required
+  //- a number value in [+1,+Infinity)
+  //- e.g. 2 in case of <h2>
+  level: $level
 }
 ```
 
 ## Integrated plugins
 
-'metalsmith-doctoc' comes with the following lightweight plugins (LPs). Their
-main purpose though is to showcase how to implement and use your own LPs.
-
-The names of all integrated plugins will use the prefix "doctoc-".
+MDT comes with the following LPs that can be used by specifying their name
+inside options.plugins. Their main purpose though is to showcase how to
+implement and use lightweight plugins.
 
 ### "doctoc-default"
 
@@ -256,19 +278,20 @@ into HTML files. In general, these kind of HTML files, aren't fully specified
 and don't have any deep structure worth mentioning. They merely hold a "flat"
 sequence of HTML tags; i.e. usually no &lt;div&gt; tags.
 
-This default plugin uses regular expressions to search for headings (&lt;h1&gt;
-to &lt;h6&gt;) tags and assigns id values to them if needed; i.e. this default
-plugin won't add any anchors (&lt;a&gt;) to your content files. It will then
-return a list of headings to 'metalsmith-doctoc' for further processing.
+This LP uses regular expressions to search for heading tags (&lt;h1&gt;
+to &lt;h6&gt;) and adds id attributes to them if needed; it won't add any
+anchor tags (&lt;a&gt;) to your content files. It will then return a list of
+heading objects to MDT for further processing.
+
+Heading objects generated by this plugin are as shown above.
 
 ## List of LPs
 
 * What is it's name? : What will it do?
 
-If you have implemented a plugin to be used with 'metalsmith-doctoc', please
-name it using 'metalsmith-doctoc-' as prefix. This will allow your plugin to be
-easily found by searching on 
-[npmjs](https://www.npmjs.com/search?q=metalsmith-doctoc-).
+If you have implemented a plugin to be used with MDT, please name it using
+'metalsmith-doctoc-' as prefix. This will allow your plugin to be easily found
+by searching on [npmjs](https://www.npmjs.com/search?q=metalsmith-doctoc-).
 
 ## Error handling
 
@@ -282,24 +305,22 @@ try {
 }
 ```
 
-In some cases, metalsmith-doctoc needs to create it's own error in order to
-point out, with which options.plugins configuration or file it had a problem.
-As this this will dump the actual error that triggered this problem, this
-initial error will be attached to the new Error object via a 'innerError'
-property. Check these properties if doctoc's error messages lack the information
-you need to deal with a problem.
+In some cases, MDT to create it's own error in order to point out, with which
+options.plugins configuration or file it had a problem. As this this will
+discard the error that triggered a problem, this initial error will be attached
+to the new Error object via a 'innerError' property. Check these properties if
+MDT's error messages lack the information you need to solve an issue.
 
 ## Plugins API
 
-If you intend to write a plugin for 'metalsmith-doctoc', you essentially agree
-to generate a menu tree that any user can use as if 'metalsmith-doctoc' created
-this structure itself. The main advantage for you is that you can concentrate on
-what your plugin is actually supposed to do, which is to read table-of-contents
-from a file's contents.
+If you intend to write a plugin for MDT, you essentially agree to generate a
+menu tree that any user can use as if MDT created this structure itself.
+The main advantage for you is that you can concentrate on what your plugin is
+actually supposed to do, which is to read TOC menus from file contents.
 
 Take a look at the './src/doctoc-default' subfolder on
 [github](https://github.com/rehierl/metalsmith-doctoc/tree/master/src/doctoc-default)
-for an example of how to implement a basic lightweight plugin for 'metalsmith-doctoc'.
+for an example of how to implement a basic LP for MDT.
 
 ```js
 Plugin interface {
@@ -311,16 +332,12 @@ Plugin interface {
   //- void function(anything)
   //- if options.plugins[$name].options does exist,
   //  it's value will be passed on to this function
-  //- when options are found and this function is missing,
-  //  a waring will be issued
   function applyDefaultOptions(options);
   
   //- optional
   //- void function(anything)
   //- if file[options.doctocFlag].options does exist,
   //  it's value will be passed on to this function
-  //- when options are found and this function is missing,
-  //  a waring will be issued
   function applyFileOptions(filename, options);
 
   //- required
@@ -329,12 +346,15 @@ Plugin interface {
 }
 ```
 
-Note that 'metalsmith-doctoc' implements a proxy, which wraps up any lightweight
-plugin. This proxy will handle all cases in which any of the above optional
-functions are missing. The 'Plugin.run()' function must return an object, which
-holds run's result and contains meta-information about the result. The proxy
-uses this meta-data to determine if the plugin's actual result needs further
-processing. run's response object must have the following structure:
+Note that MDT does implements a proxy to wrap up any LP. This proxy object will
+handle all cases in which any of the above optional functions are missing.
+
+If an options value is encountered and if the corresponding applyXXXOptions()
+method is missing, a warning will be issued using Node's debug module; enable
+the 'metalsmith-doctoc' flag to see these warnings.
+
+The 'Plugin.run()' function must return an object which holds run's result and
+contains meta-information about the plugin's result:
 
 ```js
 RunResponse {
@@ -342,13 +362,11 @@ RunResponse {
   //- $result = ($headings | $root)
   //- $headings = [ Heading* ]
   //  an array of Heading objects
-  //- $root = Node
-  //  the topmost node of a node tree
+  //- $root = the topmost node of a TOC menu
   result: $result,
 
   //- optional
   //- set true if response.result is a $headings array
-  //- the proxy will replace result's value by a $root
   isHeadingsList: false,
 
   //- optional
@@ -357,7 +375,7 @@ RunResponse {
   //  the following is true: (child.level = parent.level+1),
   //  if (and only if) (child.parent = parent)
   dontNormalizeLevelValues: false,
-
+  
   //- optional
   //- set true to prevent the proxy from overwriting
   //  the following node properties:
@@ -366,45 +384,49 @@ RunResponse {
 }
 ```
 
+The proxy uses this meta-information object to determine if the plugin's actual
+result (i.e. RunResponse.result) needs further processing.
+
+### isHeadingsList
+
 If RunResponse.isHeadingsList is set, RunResponse.result is expected to be
-an array of Heading objects:
+an array/list of Heading objects. In that case, Heading.level is a
+needed/required property!
 
-```js
-Heading {
-  //- a string value
-  //- set to 'hX' for each <hX> tag
-  //- e.g. 'h1' in case of a <h1> tag
-  tag: $tag,
+If (list[i].level < list[i+n].level), then proxy will assume that list[i+n] is
+supposed to be a child heading of list[i]. Hence it is important that list
+contains the heading entries in order of appearance.
 
-  //- a string value
-  //- e.g. '$id' in case of a <h1 id='$id'> tag
-  //- if no id is available, one must be generated
-  //  and the file's contents must be modified accordingly
-  id: $id,
+If RunResponse.isHeadingsList is not set, RunResponse.result is
+expected to be a root Node object; i.e. the topmost node of a menu tree.
 
-  //- a string value
-  //- set to $contents in case of <h1>$contents</h1>
-  //- this value will be used to describe a link.
-  contents: $contents,
+### dontNormalizeLevelValues
 
-  //- an integer value from [+1,+Infinity)
-  //- e.g. 2 in case of <h2>
-  level: $level
-}
+A random HTML document may contain h1 and h3, but no h2 heading tags. The TOC
+menu nodes of such a document will then assign number values 1 and 3 to the
+node.level properties. This will cause problems if these values are then taken
+to generate an indentation prefix, because the menu entries will jump from a
+1-wide indent to a 3-wide indent.
+
+```
+//- before normalization, the following
+//  is true for any X in [+1,+Infinity)
+node.level = node.parent.level+X
 ```
 
-If (list[i].level < list[i+n].level), proxy will assume that list[i+n] is
-supposed to be a child heading of list[i]. Hence it is important that list
-contains the headings in order of appearance.
+To avoid this issue, node.level values can be normalized to only differ by 1:
 
-In any other case, RunResponse.result is expected to be a Node object;
-more precisely, the topmost (root) node of a node tree. See section
-file[options.doctocTree] for an object definition.
+```
+//- after normalization, the following
+//  will be true for all node objects
+node.level = node.parent.level+1
+```
+
+### dontFinalizeNodes
 
 You may omit node.next, node.previous and node.childrenAll as long as you don't
-set RunResponse.dontFinalizeNodes to true. You must set dontFinalizeNodes if
-your plugin has set these properties, or otherwise the proxy will overwrite
-their values.
+set RunResponse.dontFinalizeNodes to true. Proxy will overwrite their values if
+this setting remains false.
 
 ## License
 

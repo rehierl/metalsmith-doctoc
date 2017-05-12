@@ -23,8 +23,10 @@ module.exports = function(files, metalsmith, done) {
     comment.push("<!--");
 
     root.childrenAll.forEach(function(node, index, array) {
+      const heading = node.heading;
       comment.push(util.format("%s%s - %s",
-        ".".repeat(node.level), node.tag, node.contents
+        ".".repeat(node.level),
+        heading.tag, heading.title
       ));
     });
 

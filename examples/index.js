@@ -73,7 +73,7 @@ msi
   plugins: {
     "default": {
       plugin: "doctoc-default",
-      options: "h1-6"
+      options: "h2-6"
     }
   },
   
@@ -97,6 +97,9 @@ msi
 //- run metalsmith's build process
 .build(function(error, files) {
   if(!error) { return false; }
-  console.log("ERROR: " + error.message);
-  throw error;
+  
+  //- may have error.innerError
+  console.log("ERROR:", error);
+  
+  //throw error;
 });

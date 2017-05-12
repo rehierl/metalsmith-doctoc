@@ -16,36 +16,44 @@ module.exports = plugin;
 //========//========//========//========//========//========//========//========
 
 function plugin(userOptions) {
-  const options = new Options();
-  options.combine(userOptions);
-  
-  //- after this call:
-  //  settings.plugins := { ($configName: $proxy)* }
-  //  i.e. each plugins entry holds a proxy wrapper
-  initializePlugins(options);
-  
   return function main(files, metalsmith, done) {
-    let keys = multimatch(Object.keys(files), options.filter);
+    const options = new Options();
+
+    try {
+      options.combine(userOptions);
+      initializePlugins(options);
+      //- settings.plugins := { ($configName: $proxy)* }
+      //  i.e. each plugins entry will now hold a proxy wrapper
+    } catch(error) {
+      done(error);
+      return;
+    }
+    
+    const keys = multimatch(Object.keys(files), options.filter);
     
     for(let ix=0, ic=keys.length; ix<ic; ix++) {
-      let filename = keys[ix];
-      let file = files[filename];
+      const filename = keys[ix];
+      const file = files[filename];
       
       try {
         //flagValue
         //- false - ignore this file
         //- true - use the default plugin with non-file specific options
         //- { config: $configName (, options: $options)? }
-        let flagValue = getFlagValue(filename, file, options);
-        if(flagValue === false) continue;
+        const flagValue = getFlagValue(filename, file, options);
+        
+        if(flagValue === false) {
+          //- ignore this file
+          continue;
+        }
 
         //- proxy := one of the options.plugins $proxy entries
         //- this will also apply flagValue.options (if available);
         //  which must be done here in case of (flagValue === true)
-        let proxy = selectProxy(filename, flagValue, options);
+        const proxy = selectProxy(filename, flagValue, options);
 
         //- process the current file
-        let root = proxy.run(filename, file);
+        const root = proxy.run(filename, file);
         
         //- assign the tree to the selected property
         //- root - the root node of the document's toc menu tree
@@ -65,10 +73,10 @@ function plugin(userOptions) {
 //- before: see Options.plugins
 //- after:  options.plugins := { ($configName: $proxy)* }
 function initializePlugins(options) {
-  let keys = Object.keys(options.plugins);
+  const keys = Object.keys(options.plugins);
   
   for(let ix=0, ic=keys.length; ix<ic; ix++) {
-    let configName = keys[ix];
+    const configName = keys[ix];
     let definition = options.plugins[configName];
     
     //### turn ($name | $class) into $definition
@@ -104,15 +112,13 @@ function initializePlugins(options) {
     let plugin = definition.plugin;
     
     if(is.string(plugin)) {
-      let reference = plugin;
-      
       try {//- the name of an integrated plugin
-        plugin = resolvePluginReference(reference, options);
+        plugin = resolvePluginReference(plugin, options);
       } catch(error) {
         let newError = new Error(util.format(
           "doctoc: options.plugins[%s].plugin: "
-          + "failed to resolve the given plugin reference",
-          configName
+          + "failed to resolve [%s] as plugin reference",
+          configName, plugin
         ));
         newError.innerError = error;
         throw newError;
@@ -151,13 +157,14 @@ function initializePlugins(options) {
     
     //### replace $definition.plugin with $proxy
     
-    let proxy = new Proxy(configName, plugin);
+    const proxy = new Proxy(configName, plugin);
     
     //- apply options.plugins[X].options
     if(definition.hasOwnProperty("options")) {
       proxy.applyDefaultOptions(definition.options);
     }
     
+    //- replace defintion with proxy
     options.plugins[configName] = proxy;
   }//- for
 }
@@ -176,8 +183,9 @@ function resolvePluginReference(reference, options) {
       return require(reference);
     } catch(error) {
       if(options.resolveFunc) {
-        //- ignore this error here and hope that the user
-        //  solves this issue in resolveFunc()
+        //- ignore this error for now and
+        //  hope that the user solves this
+        //  issue in resolveFunc()
       } else {
         throw error;
       }
@@ -199,7 +207,7 @@ function resolvePluginReference(reference, options) {
 //- { config: $configName (, options: $options)? }
 function getFlagValue(filename, file, options) {
   if(options.ignoreFlag) {
-    return true;//- use the default plugin
+    return true;//- use the default configuration
   }
   
   let flagName = options.doctocFlag;
@@ -208,39 +216,39 @@ function getFlagValue(filename, file, options) {
     return false;//- ignore this file
   }
   
-  let flagValue = file[flagName];
+  const flagValue = file[flagName];
   
   if (flagValue === false) {
     return false;//- ignore this file
   }
   
   else if(flagValue === true) {
-    return true;//- use the default plugin
+    return true;//- use the default configuration
   }
   
   else if(is.string(flagValue)) {
-    //- use the specified plugin
+    //- use the specified configuration
     //  with non-file specific options
     return { config: flagValue };
   }
   
   if(!is.object(flagValue)) {
     throw new Error(util.format(
-      "doctoc [%s]: file[%s] has an invalid value",
+      "doctoc [%s].[%s]: must be an object",
       filename, flagName
     ));
   }
   
   if(!flagValue.hasOwnProperty("config")) {
     throw new Error(util.format(
-      "doctoc [%s]: file[%s] must have a 'config' property",
+      "doctoc [%s].[%s]: must have a 'config' property",
       filename, flagName
     ));
   }
 
   if(!is.string(flagValue.config)) {
     throw new Error(util.format(
-      "doctoc [%s]: file[%s].config must have a string value",
+      "doctoc [%s].[%s]: config must have a string value",
       filename, flagName
     ));
   }
@@ -250,19 +258,19 @@ function getFlagValue(filename, file, options) {
 
 //========//========//========//========//========//========//========//========
 
-//flagValue
+//@param flagValue
 //- true - use the default plugin with non-file specific options
 //- { config: $configName (, options: $options)? }
-//returns
-//- one of the settings.plugins $proxy entries
+//@return
+//- one of the options.plugins $proxy entries
 //- this will also apply flagValue.options (if available)
 function selectProxy(filename, flagValue, options) {
   if(flagValue === true) {
     flagValue = { config: options.default };
   }
   
-  let configName = flagValue.config;
-  let plugins = options.plugins;
+  const configName = flagValue.config;
+  const plugins = options.plugins;
   
   if(!plugins.hasOwnProperty(configName)) {
     throw new Error(util.format(
@@ -271,7 +279,7 @@ function selectProxy(filename, flagValue, options) {
     ));
   }
   
-  let proxy = plugins[configName];
+  const proxy = plugins[configName];
   
   //- apply file[doctocFlag].options
   if(flagValue.hasOwnProperty("options")) {
