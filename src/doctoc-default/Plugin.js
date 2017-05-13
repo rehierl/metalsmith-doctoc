@@ -117,7 +117,6 @@ Plugin.prototype.run = function(filename, file) {
 
 //========//========//========//========//========//========//========//========
 
-//- private
 //- split and search for html heading tags
 function split(contents, options) {
   //- m = rx.exec("prefix <h1 attributes>heading</h1> suffix")
@@ -206,7 +205,6 @@ function split(contents, options) {
 
 //========//========//========//========//========//========//========//========
 
-//- private
 //- merge contents and add id attributes if necessary
  function merge(contents, options) {
   let ic = contents.length;

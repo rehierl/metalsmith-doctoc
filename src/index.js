@@ -16,19 +16,14 @@ module.exports = plugin;
 //========//========//========//========//========//========//========//========
 
 function plugin(userOptions) {
-  return function main(files, metalsmith, done) {
-    const options = new Options();
+  const options = new Options();
+  options.combine(userOptions);
+  
+  //- afterwards: settings.plugins := { ($configName: $proxy)* }
+  //  i.e. each plugins entry will hold a proxy wrapper
+  initializePlugins(options);
 
-    try {
-      options.combine(userOptions);
-      initializePlugins(options);
-      //- settings.plugins := { ($configName: $proxy)* }
-      //  i.e. each plugins entry will now hold a proxy wrapper
-    } catch(error) {
-      done(error);
-      return;
-    }
-    
+  return function main(files, metalsmith, done) {
     const keys = multimatch(Object.keys(files), options.filter);
     
     for(let ix=0, ic=keys.length; ix<ic; ix++) {

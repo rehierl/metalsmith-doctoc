@@ -97,79 +97,76 @@ function Options() {
 //========//========//========//========//========//========//========//========
   
 Options.prototype.combine = function(options) {
-  {//- acceptance of non-object arguments
-    if(arguments.length === 0) {
-      //- don't use any non-default options
-      options = {};
-    }
+  if(arguments.length === 0) {
+    //- ignore this call
+    return;
   }
 
-  //- from now on, options must be an object
   if(!is.object(options)) {
     throw new TypeError("invalid options argument");
   }
 
-  {//- do some basic validation of options
-    //- non-empty string values
-    ["doctocFlag", "default", "doctocTree"]
-    .forEach(function(current, index, array) {
-      if(options.hasOwnProperty(current)) {
-        if(!isString(options[current])) {
-          throw new Error(util.format(
-            "options.%s must be anon-empty string", current
-          ));
-        }
-      }
-    });
-    
-    //- boolean values
-    ["ignoreFlag", "enableRequire"]
-    .forEach(function(current, index, array) {
-      if(options.hasOwnProperty(current)) {
-        if(!isBool(options[current])) {
-          throw new Error(util.format(
-            "options.%s must be anon-empty string", current
-          ));
-        }
-      }
-    });
-    
-    let key = undefined;
-    
-    key = "filter";
-    if(options.hasOwnProperty(key)) {
-      if(!isString(options[key]) && !isStringArray(options[key])) {
-        throw new Error("options.filter must be a string or an array of strings");
-      }
+  validateOptions(options);
+  const thisInstance = this;
+  
+  Object.getOwnPropertyNames(this)
+  .forEach(function(current, index, array) {
+    if(options.hasOwnProperty(current)) {
+      thisInstance[current] = options[current];
     }
-    
-    key = "plugins";
-    if(options.hasOwnProperty(key)) {
-      if(!is.object(options[key])) {
-        throw new Error("options.plugins must be an object");
-      }
-    }
-    
-    key = "resolveFunc";
-    if(options.hasOwnProperty(key)) {
-      if(!is.fn(options[key])) {
-        throw new Error("options.resolveFunc must be a function");
-      }
-    }
-  }
-
-  {//- override the default settings
-    let thisInstance = this;
-
-    Object.keys(this).forEach(function(current, index, array) {
-      //- if options has a property, then use it;
-      //  this incldues any 'undefined' values
-      if(options.hasOwnProperty(current)) {
-        thisInstance[current] = options[current];
-      }
-    });
-  }
+  });
 };
+
+//========//========//========//========//========//========//========//========
+
+function validateOptions(options) {
+  let key = undefined;
+
+  //- non-empty string values
+  ["doctocFlag", "default", "doctocTree"]
+  .forEach(function(current, index, array) {
+    if(options.hasOwnProperty(current)) {
+      if(!isString(options[current])) {
+        throw new Error(util.format(
+          "options.%s must be a non-empty string", current
+        ));
+      }
+    }
+  });
+
+  //- boolean values
+  ["ignoreFlag", "enableRequire"]
+  .forEach(function(current, index, array) {
+    if(options.hasOwnProperty(current)) {
+      if(!isBool(options[current])) {
+        throw new Error(util.format(
+          "options.%s must be a non-empty string", current
+        ));
+      }
+    }
+  });
+
+  key = "filter";
+  if(options.hasOwnProperty(key)) {
+    if(!isString(options[key]) && !isStringArray(options[key])) {
+      throw new Error("options.filter must be a string or an array of strings");
+    }
+  }
+
+  key = "plugins";
+  if(options.hasOwnProperty(key)) {
+    if(!is.object(options[key])) {
+      throw new Error("options.plugins must be an object");
+    }
+  }
+
+  key = "resolveFunc";
+  if(options.hasOwnProperty(key)) {
+    if(!is.fn(options[key])) {
+      throw new Error("options.resolveFunc must be a function");
+    }
+  }
+}
 
 //========//========//========//========//========//========//========//========
 
