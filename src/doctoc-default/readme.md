@@ -12,12 +12,17 @@ This plugin will use regular expressions to search for heading tags (&lt;h1&gt;
 to &lt;h6&gt;) and will add id attributes to them if needed. It will then return
 a list of Heading objects to metalsmith-doctoc for further processing.
 
-## Options Object
+## Options object
 
-doctoc-default will accept the following option properties:
+This plugin will accept the following option properties:
 
 ```js
 Options {
+  //- $range = 'h$min-$max'
+  //- with $min and $max in [1,6] and ($min <= $max)
+  //- $min will replace hMin and $max will replace hMax
+  hRange: "h1-6",
+  
   //- an integer value in [1,6]
   //- if hMin=X, then this plugin will
   //  ignore any heading tag <hN> if (N < X)
@@ -34,6 +39,28 @@ Options {
   //- if (hMin > hMax), then all heading tags will be ignored!
   hMax: 6,
 
+  //- $selector = /h[1-6](,\s*h[1-6])*/
+  //- a heading will only be taken into account, if it's tag
+  //  can be found inside hSelector
+  //- if hRange is given, it will override hMin and hMax
+  //- if hMin or hMax are given, they will override hSelector
+  //- hSelector is what will be used to find the heading tags
+  hSelector: 'h1, h2, h3, h4, h5, h6',
+  
+  //- string function(string)
+  //- this function will be used to calculate a missing id:
+  //  assuming "<h1>$title</h1>" was found, an id will be
+  //  generated as follows: $id = options.slugFunc($title)
+  //- the purpose of this function is to generate an id
+  //  value that respects HTML's requirements for these
+  //  kind of values; e.g. no (') or (") characters, etc.
+  //- node's slug module isn't flawless:
+  //  slug('1.') === slug('1..') === '1'
+  //  i.e. a possible id value collision
+  //- this option allows you to specify a function of your
+  //  own in case slug() causes any issues
+  slugFunc: slug,
+
   //- if a heading of the form <h1>$title</h1> is found, an id
   //  will be generated using '$id = slug($title)'. in order to
   //  avoid collision of id values, generated ids will be
@@ -44,57 +71,35 @@ Options {
 }
 ```
 
-### Range pattern
+Note that if a hRange value is given, it will override hMin, hMax and hSelector.
+And if hRange is omitted, but hMin and/or hMax are given, they will override
+hSelector. So only one of those (hRange, hMin/hMax or hSelector) should be used.
 
-You may use a range pattern to specify hMin and hMax values separately:
+### Range/Selector for options
 
-```
-$range = 'h$min-$max'
-$min, $max = [1-6]
-```
-
-Note that the value of $min should always be lower or equal to the value of $max.
-
-### Range for options
-
-This plugin will accept a range pattern instead of an options object:
+This plugin will accept a range string instead of an options object:
 
 ```js
 metalsmith-doctoc-options {
   ...
-
   plugins: {
     ...
-    
     $configName: {
-      plugin: 'doctoc-default',
-      options: $range
+      ... options: 'h1-6' ...
     }
-
     ...
   },
-
   ...
 }
 ```
 
-In this case, the default value (i.e. 'doctoc-') will be used for the idPrefix
-property.
-
-### Range property
-
-Instead of the hMin and hMax properties, you may specify a hRange property:
+It is also possible to provide a selector string:
 
 ```js
-Options {
-  hRange: $range,
-  idPrefix: $prefix
-}
+... options: 'h1, h2, h3, h4' ...
 ```
 
-Please note, that this will overwrite/replace any hMin and hMax property!
-
-## Heading Objects
+## Heading objects
 
 doctoc-default's Heading objects will have the following properties:
 

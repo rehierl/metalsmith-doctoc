@@ -3,7 +3,6 @@
 
 const is = require("is");
 const util = require("util");
-const slug = require("slug");
 
 const Options = require("./Options.js");
 
@@ -72,7 +71,7 @@ Plugin.prototype.run = function(filename, file) {
   
   let headings = undefined;
   
-  {//### read and modify the file's contents
+  {//### read and modify the file contents
     let contents = file.contents;
     let fromBuffer = undefined;
 
@@ -84,29 +83,22 @@ Plugin.prototype.run = function(filename, file) {
       fromBuffer = true;
     }
 
-    const result = split(contents, options);
-    contents = merge(result.contents, options);
+    //- result.contents might have changed!
+    const result = read(contents, options);
 
-    if(fromBuffer === true) {
-      //- if you started with a buffer,
-      //  then you should stop with one
-      contents = new Buffer(contents);
+    if(result.newIdsCount > 0) {
+      contents = result.contents;
+      
+      if(fromBuffer === true) {
+        //- if you started with a buffer,
+        //  then you should finish with one
+        contents = new Buffer(result.contents);
+      }
+      
+      file.contents = contents;
     }
 
-    file.contents = contents;
     headings = result.headings;
-  }
-  
-  //### transform the heading entries
-  for(let ix=0, ic=headings.length; ix<ic; ix++) {
-    const h = headings[ix];
-
-    headings[ix] = {
-      tag: h.tag,
-      id: h.id,
-      title: h.title,
-      level: h.level
-    };
   }
   
   return {
@@ -117,7 +109,37 @@ Plugin.prototype.run = function(filename, file) {
 
 //========//========//========//========//========//========//========//========
 
-//- split and search for html heading tags
+//- (contents, options) => { contents, newIdsCount, [headings] }
+//- contents will have changed iif (newIdsCount > 0)
+function read(contents, options) {
+  const result = split(contents, options);
+  
+  if(result.newIdsCount > 0) {
+    contents = result.contents;
+    contents = merge(contents, options);
+  }
+  
+  result.contents = contents;
+  const headings = result.headings;
+  const ic = headings.length;
+
+  for(let ix=0; ix<ic; ix++) {
+    const h = headings[ix];
+
+    headings[ix] = {
+      tag: h.tag,
+      id: h.id,
+      title: h.title,
+      level: h.level
+    };
+  }
+  
+  return result;
+}
+
+//========//========//========//========//========//========//========//========
+
+//- (contents, options) => { [contents], newIdsCount, [headings] }
 function split(contents, options) {
   //- m = rx.exec("prefix <h1 attributes>heading</h1> suffix")
   //  m[0]="<h1 attributes>heading</h1>", m[1]="h1", m[2]="1",
@@ -128,12 +150,14 @@ function split(contents, options) {
   //  m[0]=" id='some-id'", m[1]="some-id"
   const rxA = /id=('([^']*)'|"([^"]*)")/gi;
   
+  const selector = options.hSelector;
   let ix=0, ic=contents.length;
   let parts = [];
+  let newIdsCount = 0;
   let headings = [];
   
   while(ix < ic) {
-    let m = rxH.exec(contents);
+    const m = rxH.exec(contents);
     
     if(m === null) {
       //- no match found
@@ -149,9 +173,11 @@ function split(contents, options) {
       ix = m.index;
     }
     
-    //- contents are invalid, or
-    //  rxH needs to be improved
-    console.assert(m[1] === m[5], "internal error: rxH");
+    if(m[1] !== m[5]) {
+      //- could be as simple as "<h1>...</H1>"
+      //- either contents is invalid, or rxH needs an update
+      throw new Error("doctoc-default: internal error with rxH");
+    }
     
     let h = {
       type: "heading",
@@ -162,20 +188,17 @@ function split(contents, options) {
       title: m[4]
     };
     
-    if((h.level < options.hMin)
-    || (h.level > options.hMax)) {
+    if(selector.indexOf(m[2]) < 0) {
       //- ignore this heading
       h.ignored = true;
-    } else if(h.attributes === "") {
-      //- did not have any attributes
+    } else if((h.attributes === "")
+    || (m = rxA.exec(h.attributes)) === null) {
+      //- no attributes, or no 'id=...' found
       h.hadId = false;
-      h.id = options.idPrefix + slug(h.title);
+      h.id = util.format("%s%s",
+        options.idPrefix, options.slugFunc(h.title));
       headings.push(h);
-    } else if((m = rxA.exec(h.attributes)) === null) {
-      //- no 'id=...' found
-      h.hadId = false;
-      h.id = options.idPrefix + slug(h.title);
-      headings.push(h);
+      newIdsCount++;
     } else {
       //- 'id=...' found
       h.hadId = true;
@@ -185,8 +208,7 @@ function split(contents, options) {
     
     parts.push(h);
     ix = rxH.lastIndex;
-    continue;
-  }
+  }//- while
   
   if(ix < ic) {
     //- some non-heading suffix,
@@ -199,36 +221,34 @@ function split(contents, options) {
   
   return {
     contents: parts,
+    newIdsCount: newIdsCount,
     headings: headings
   };
 };
 
 //========//========//========//========//========//========//========//========
 
-//- merge contents and add id attributes if necessary
+//- ([contents], options) => contents
  function merge(contents, options) {
-  let ic = contents.length;
-  
-  for(let ix=0; ix<ic; ix++) {
-    let part = contents[ix];
-    
-    if(part.type !== "heading") {
-      contents[ix] = part.contents;
-      continue;
-    }
-    
-    if((part.ignored === true) || (part.hadId === true)) {
-      contents[ix] = util.format("<%s%s>%s</%s>",
-        part.tag, part.attributes, part.title, part.tag
-      );
-    } else {
-      contents[ix] = util.format("<%s id='%s'%s>%s</%s>",
-        part.tag, part.id, part.attributes, part.title, part.tag
-      );
-    }
-    
-    continue;
-  }
-  
-  return contents.join("");
+    const ic = contents.length;
+
+    for(let ix=0; ix<ic; ix++) {
+      let part = contents[ix];
+
+      if(part.type !== "heading") {
+        part = part.contents;
+      } else if((part.ignored === true) || (part.hadId === true)) {
+        part = util.format("<%s%s>%s</%s>",
+          part.tag, part.attributes, part.title, part.tag
+        );
+      } else {
+        part = util.format("<%s id='%s'%s>%s</%s>",
+          part.tag, part.id, part.attributes, part.title, part.tag
+        );
+      }
+      
+      contents[ix] = part;
+    }//- for
+
+    return contents.join("");
 };

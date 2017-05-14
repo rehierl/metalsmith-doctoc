@@ -2,10 +2,10 @@
 doctoc: true
 ---
 
-always a h1 heading
+**always** a h1 heading
 ===
 
-always a h2 heading
+**always** a h2 heading
 ---
 
 - these are setext-style headlines

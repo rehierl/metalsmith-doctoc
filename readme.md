@@ -4,23 +4,16 @@ metalsmith-doctoc
 
 Please be aware that, as long as this plugin's version begins with '0.',
 **I consider this to be a 'Beta' version.** This means that it should basically
-work, but still needs some editing/review/testing. So essential parts may change
-without further notice. Please open an issue on github if you have any suggestions.
+work, but still needs some editing/review/testing.
 
-If you know 'metalsmith-autotoc'
-([npmjs](https://www.npmjs.com/package/metalsmith-autotoc),
-[github](https://github.com/anatoo/metalsmith-autotoc)),
-then you already know what this plugin will do. The only (big) difference is
-that 'metalsmith-doctoc' **(MDT)** will allow you to use lightweight plugins
-**(LPs)** to configure how your TOCs will be generated from your source files.
-
-So the main purpose of this Metalsmith
+The main purpose of this Metalsmith
 ([npmjs](https://www.npmjs.com/package/metalsmith),
 [github](https://github.com/segmentio/metalsmith))
-plugin is to provide a framework for LPs. MDT will invoke these LPs for each
-file they are configured for, which they analyze in order to generate a
-table-of-contents **(TOC)** menu tree. These TOC menu trees can then be used in
-combination with a template engine to render menus into your files.
+plugin is to provide a framework for LPs. metalsmith-doctoc **(MDT)** will invoke
+lightweight plugins **(LPs)** for each file they are configured for, which they
+analyze in order to generate a table-of-contents **(TOC)** menu tree. These TOC
+menu trees can then be used in combination with a template engine to render
+menus into your files.
 
 ## TODO
 
@@ -255,13 +248,19 @@ implement and use lightweight plugins.
 
 * [doctoc-default](https://github.com/rehierl/metalsmith-doctoc/tree/master/src/doctoc-default)
   is intended to be run after Markdown files have been converted into HTML files.
-  It will analyze these files and add id attributes to heading tags if needed.
-  When done it will return a list of Heading objects to MDT.
+  It will use reqgular expressions to analyze these files and add id attributes
+  to heading tags if needed. When done it will return a list of Heading objects
+  to MDT for further processing.
 
 ## List of LPs
 
-* What is it's name?
-  What will it do?
+* metalsmith-doctoc-jsdom
+  ([npmjs](https://www.npmjs.com/package/metalsmith-doctoc-jsdom),
+  [github](https://github.com/rehierl/metalsmith-doctoc-jsdom))
+  will use jsdom
+  ([npmjs](https://www.npmjs.com/package/jsdom),
+  [github](https://github.com/tmpvar/jsdom))
+  to search for heading tags inside HTML content.
 
 If you have implemented a plugin to be used with MDT, please name it using
 'metalsmith-doctoc-' as prefix. This will allow your plugin to be easily found
@@ -292,7 +291,8 @@ menu tree that any user can use as if MDT created this structure itself.
 The main advantage for you is that you can concentrate on what your plugin is
 actually supposed to do, which is to read TOC menus from file contents.
 
-Take a look at the [./src/doctoc-default](https://github.com/rehierl/metalsmith-doctoc/tree/master/src/doctoc-default)
+Take a look at the
+[./src/doctoc-default](https://github.com/rehierl/metalsmith-doctoc/tree/master/src/doctoc-default)
  subfolder for an example of how to implement a basic LP for MDT.
 
 ```js
@@ -391,8 +391,10 @@ to generate an indentation prefix, because the menu entries will jump from a
 
 ```
 //- before normalization, the following
-//  is true for any X in [+1,+Infinity)
-node.level = node.parent.level+X
+//  is true for some X and Y in [+1,+Infinity)
+(node.level = node.parent.level+X) and
+(node2.level = node2.parent.level+Y) and
+not necessarily (X == Y)
 ```
 
 To avoid this issue, node.level values can be normalized to only differ by 1:

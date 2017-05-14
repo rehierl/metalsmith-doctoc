@@ -3,6 +3,7 @@
 
 const is = require("is");
 const util = require("util");
+const slug = require("slug");
 
 module.exports = Options;
 
@@ -13,17 +14,46 @@ function Options() {
     return new Options();
   }
   
-  //- if X=N for some <hN> tag, then ignore any heading that has a
-  //  lower N than hMin; i.e. ignore a heading if (N < hMin)
-  //- ignore all tags other than <hX>, if (hMin == hMax == X)
-  //- ignore all tags, if (hMin > hMax)
-  this.hMin = 1;
+  //- $range = 'hN-M'
+  //- with N and M in [1,6] and (N <= M)
+  //- N will replace hMin and M will replace hMax
+  //this.hRange = 'h1-6';
   
-  //- if X=N for some <hN> tag, then ignore any heading that has a
-  //  higher N than hMax; i.e. ignore a heading if (N > hMax)
+  //- $min = integer value in [1,6]
+  //- if X=N for some <hN> tag, then ignore any heading that has
+  //  a lower N than hMin; i.e. ignore a heading if (N < hMin)
   //- ignore all tags other than <hX>, if (hMin == hMax == X)
   //- ignore all tags, if (hMin > hMax)
-  this.hMax = 6;
+  //this.hMin = 1;
+  
+  //- $max = integer value in [1,6]
+  //- if X=N for some <hN> tag, then ignore any heading that has
+  //  a higher N than hMax; i.e. ignore a heading if (N > hMax)
+  //- ignore all tags other than <hX>, if (hMin == hMax == X)
+  //- ignore all tags, if (hMin > hMax)
+  //this.hMax = 6;
+  
+  //- $selector = /h[1-6](,\s*h[1-6])*/
+  //- a heading will only be taken into account, if it's tag
+  //  can be found inside hSelector
+  //- if hRange is given, it will override hMin and hMax
+  //- if hMin or hMax are given, they will override hSelector
+  //- hSelector is what will be used to find the heading tags
+  this.hSelector = 'h1, h2, h3, h4, h5, h6';
+  
+  //- string function(string)
+  //- this function will be used to calculate a missing id:
+  //  assuming "<h1>$title</h1>" was found, an id will be
+  //  generated as follows: $id = options.slugFunc($title)
+  //- the purpose of this function is to generate an id
+  //  value that respects HTML's requirements for these
+  //  kind of values; e.g. no (') or (") characters, etc.
+  //- node's slug module isn't flawless:
+  //  slug('1.') === slug('1..') === '1'
+  //  i.e. a possible id value collision
+  //- this option allows you to specify a function of your
+  //  own in case slug() causes any issues
+  this.slugFunc = slug;
   
   //- if a heading of the form <h1>$title</h1> is found, an id
   //  will be generated using '$id = slug($title)'. in order to
@@ -56,52 +86,32 @@ Options.prototype.combine = function(options) {
     return;
   }
   
-  //- e.g. options = "h1-6"
   if(is.string(options)) {
-    let range = readRange(options);
+    let result = undefined;
     
-    if(range === undefined) {
+    if((result = readRange(options)) !== false) {
+      //- e.g. options = "h1-6"
+      options = result;
+    } else if((result = readSelector(options)) !== false) {
+      //- e.g. options = "h1, h2"
+      options = result;
+    } else {
       throw new Error(util.format(
-        "string options '%s' is an invalid range value",
+        "options string '%s' is invalid",
         options
       ));
     }
-    
-    options = range;
   }
   
   if(!is.object(options)) {
     throw new Error("invalid options argument");
   }
   
-  //- e.g. options = { hRange: "h1-6" }
-  if(options.hasOwnProperty("hRange")) {
-    let range = options.hRange;
-    
-    if(!is.string(range)) {
-      throw new Error(util.format(
-        "options.hRange: [%s] is an invalid range value",
-        options
-      ));
-    }
-            
-    range = readRange(range);
-    
-    if(range === undefined) {
-      throw new Error(util.format(
-        "options.hRange: '%s' is an invalid range value",
-        options
-      ));
-    }
-    
-    options.hMin = range.hMin;
-    options.hMax = range.hMax;
-    delete options.hRange;
-  }
-  
+  removeRange(options);
+  removeMinMax(options);
   validateOptions(options);
-  const thisInstance = this;
   
+  const thisInstance = this;
   Object.getOwnPropertyNames(this)
   .forEach(function(current, index, array) {
     if(options.hasOwnProperty(current)) {
@@ -112,36 +122,115 @@ Options.prototype.combine = function(options) {
 
 //========//========//========//========//========//========//========//========
 
+function readRange(range) {
+  let match = /^h([1-6])-([1-6])$/i.exec(range);
+  
+  if(match === null) {
+    return false;
+  }
+  
+  let min = Number.parseInt(match[1]);
+  let max = Number.parseInt(match[2]);
+  return { hMin: min, hMax: max };
+}
+
+//========//========//========//========//========//========//========//========
+
+function readSelector(selector) {
+  let match = /^h[1-6](,\s*h[1-6])*$/i.test(selector);
+  
+  if(match !== true) {
+    return false;
+  }
+  
+  return { hSelector: selector };
+}
+
+//========//========//========//========//========//========//========//========
+
+//- e.g. options = { hRange: "h1-6" }
+function removeRange(options) {
+  if(!options.hasOwnProperty("hRange")) {
+    return;//- there is nothing to do
+  }
+  
+  const range = options.hRange;
+  const result = readRange(range);
+  
+  if(result === undefined) {
+    throw new Error(util.format(
+      "options.hRange: [%s] has an invalid range value",
+      options
+    ));
+  }
+  
+  options.hMin = result.hMin;
+  options.hMax = result.hMax;
+  delete options.hRange;
+}
+
+//========//========//========//========//========//========//========//========
+
+//- e.g. options = { hMin: 1, hMax: 6 }
+function removeMinMax(options) {
+  const hMinExists = options.hasOwnProperty("hMin");
+  const hMaxExists = options.hasOwnProperty("hMax");
+  
+  if(!hMinExists && !hMaxExists) {
+    return;//- there is nothing to do
+  } else if(!hMinExists) {
+    options.hMin = 1;
+  } else if(!hMaxExists) {
+    options.hMax = 6;
+  }
+  
+  const min = options.hMin;
+  const max = options.hMax;
+  
+  if(hMinExists && (!is.integer(min) || is.infinite(min) || (min < 1))) {
+    throw new Error(util.format(
+      "options.hMin: [%s] is an invalid integer value", min
+    ));
+  }
+  
+  if(hMaxExists && (!is.integer(max) || is.infinite(max) || (max > 6))) {
+    throw new Error(util.format(
+      "options.hMax: [%s] is an invalid integer value", max
+    ));
+  }
+  
+  //- (min >= 1) && (max <= 6)
+  
+  if(min > max) {
+    throw new Error(util.format(
+      "options.hMin,hMax: (hMin[%s] <= hMax[%s]) must be true", min, max
+    ));
+  }
+  
+  const selector = [];
+  
+  for(let ix=min; ix<=max; ix++) {
+    selector.push(util.format("h%s", ix));
+  }
+  
+  options.hSelector = selector.join(", ");
+  delete options.hMin;
+  delete options.hMax;
+}
+
+//========//========//========//========//========//========//========//========
+
 function validateOptions(options) {
   let key = undefined;
   let value = undefined;
-
-  ["hMin", "hMax"].forEach(function(current, index, array) {
-    if(options.hasOwnProperty(current)) {
-      value = options[current];
-
-      if(!is.integer(value) || is.infinite(value)) {
-        throw new Error(util.format(
-          "options.%s: [%s] is not a valid integer value",
-          current, value
-        ));
-      }
-
-      if((value < 1) || (value > 6)) {
-        throw new Error(util.format(
-          "options.%s: [%s] is not a valid integer value",
-          current, value
-        ));
-      }
-    }
-  });
-
-  if(options.hasOwnProperty("hMin")
-  && options.hasOwnProperty("hMax")) {
-    if(options.hMin > options.hMax) {
-      throw new Error(util.format(
-        "options.hMin, options.hMax: (%s <= %s) is not true",
-        options.hMin, options.hMax
+  
+  key = "hSelector";
+  if(options.hasOwnProperty(key)) {
+    value = options[key];
+    if(!readSelector(value)) {
+      throw new Error(util.format( 
+        "options.%s: [%s] is not a valid selector string",
+        key, value
       ));
     }
   }
@@ -156,18 +245,14 @@ function validateOptions(options) {
       ));
     }
   }
-}
-
-//========//========//========//========//========//========//========//========
-
-function readRange(range) {
-  let match = /^h([1-6])-([1-6])$/i.exec(range);
   
-  if(match === null) {
-    return undefined;
+  key = "slugFunc";
+  if(options.hasOwnProperty(key)) {
+    value = options[key];
+    if(!is.fn(value)) {
+      throw new Error(util.format(
+        "options.%s: is not a function", key
+      ));
+    }
   }
-  
-  let min = Number.parseInt(match[1]);
-  let max = Number.parseInt(match[2]);
-  return { hMin: min, hMax: max };
 }

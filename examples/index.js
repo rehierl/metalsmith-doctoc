@@ -5,6 +5,7 @@
 
 const metalsmith = require("metalsmith");
 const util = require("util");
+const slug = require("slug");
 
 //========//========//========//========//========
 
@@ -66,19 +67,26 @@ msi
 
 //*
 .use(doctoc({
-  pattern: "**",
-  ignoreFlag: false,
+  filter: "**",
+  //ignoreFlag: false,
   doctocFlag: "doctoc",
   
   plugins: {
     "default": {
       plugin: "doctoc-default",
-      options: "h2-6"
+      options: {
+        range: "h2-6",
+        slugFunc: (title) => {
+          return "slugged-" + slug(title);
+        },
+        idPrefix: ""
+      }
     }
   },
   
   "default": "default",
-  resolveFunc: require,
+  //enableRequire: false,
+  //resolveFunc: require,
   doctocTree: "doctoc"
 }))//*/
 

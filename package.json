@@ -24,7 +24,9 @@
     "metalsmith": ">=1.0.0"
   },
   "dependencies": {
+    "is": ">=3.2.1",
     "multimatch": ">=2.1.0",
+    "slug": ">=0.9.1",
     "debug": ">=2.6.6"
   }
 }

@@ -30,14 +30,25 @@ function Proxy(configName, plugin) {
 
 //- public, required
 Proxy.prototype.applyDefaultOptions = function(options) {
-  if(is.fn(this.plugin["applyDefaultOptions"])) {
-    this.plugin.applyDefaultOptions(options);
-  } else {
+  if(!is.fn(this.plugin["applyDefaultOptions"])) {
     debug(util.format(
       "doctoc options.plugins[%s]: "
       + "unable to apply the options from the configuration",
       this.configName
     ));
+    return;
+  }
+
+  try {
+    this.plugin.applyDefaultOptions(options);
+  } catch(error) {
+    let newError = new Error(util.format(
+      "doctoc options.plugins[%s]: "
+      + "failed to execute plugin.applyDefaultOptions()",
+      this.configName
+    ));
+    newError.innerError = error;
+    throw newError;
   }
 };
 
@@ -45,14 +56,26 @@ Proxy.prototype.applyDefaultOptions = function(options) {
 
 //- public, required
 Proxy.prototype.applyFileOptions = function(filename, options) {
-  if(is.fn(this.plugin["applyFileOptions"])) {
-    this.plugin.applyFileOptions(filename, options);
-  } else {
+  if(!is.fn(this.plugin["applyFileOptions"])) {
     debug(util.format(
       "doctoc options.plugins[%s]: "
       + "unable to apply the options from file [%s]",
       this.configName, filename
     ));
+    return;
+  }
+  
+  try {
+    this.plugin.applyFileOptions(filename, options);
+  } catch(error) {
+    let newError = new Error(util.format(
+      "doctoc options.plugins[%s]: "
+      + "failed to execute plugin.applyFileOptions() "
+      + "with file [%s]",
+      this.configName, filename
+    ));
+    newError.innerError = error;
+    throw newError;
   }
 };
 
@@ -60,7 +83,19 @@ Proxy.prototype.applyFileOptions = function(filename, options) {
 
 //- public, required
 Proxy.prototype.run = function(filename, file) {
-  const response = this.plugin.run(filename, file);
+  let response = undefined;
+  
+  try {
+    response = this.plugin.run(filename, file);
+  } catch(error) {
+    let newError = new Error(util.format(
+      "doctoc options.plugins[%s]: "
+      + "failed to process file [%s]",
+      this.configName, filename
+    ));
+    newError.innerError = error;
+    throw newError;
+  }
   
   if(!is.object(response)) {
     throw new Error(util.format(
