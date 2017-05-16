@@ -16,8 +16,11 @@ module.exports = Options;
 //- true := use the default worker with non-file specific options
 //- $configName := one of Object.keys(options.plugins)
 //- $config := { config: $configName (, options: $options)? }
-//- $options := anything accepted by $instance.applyFileOptions()
-//  used as file-specific configuration of the referenced plugin
+//  i.e. there must be a config property,
+//  but there may be an optional options property.
+//  any other additional property will be ignored.
+//- $options := anything that is allowed by the plugin's
+//  $class.applyFileOptions($options) method.
 
 //========//========//========//========//========//========//========//========
 

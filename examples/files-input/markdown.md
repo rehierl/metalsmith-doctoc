@@ -1,5 +1,7 @@
 ---
-doctoc: true
+doctoc:
+  config: default
+  options: 'h1-6'
 ---
 
 **always** a h1 heading
@@ -44,11 +46,11 @@ h3 heading content
 
 h4 heading content
 
-##### h5 heading
+##### heading
 
 h5 heading content
 
-###### h6 heading
+###### heading
 
 h6 heading content
 

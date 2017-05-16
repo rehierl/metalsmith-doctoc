@@ -26,13 +26,23 @@ function Plugin(userOptions) {
   
   //- used when processing a file
   this.optionsFile = this.options;
+  
+  //- MDT's plugins API
+  this.api = undefined;
 }
 
 //========//========//========//========//========//========//========//========
 
-//- public, not required
+//- public, optional
+Plugin.prototype.setPluginsApi = function(api) {
+  this.api = api;
+};
+
+//========//========//========//========//========//========//========//========
+
+//- public, optional
 //- warning if needed and missing
-Plugin.prototype.applyDefaultOptions = function(options) {
+Plugin.prototype.setDefaultOptions = function(options) {
   const clone = this.options.clone();
   clone.combine(options);
   this.optionsDefault = clone;
@@ -40,9 +50,9 @@ Plugin.prototype.applyDefaultOptions = function(options) {
 
 //========//========//========//========//========//========//========//========
 
-//- public, not required
+//- public, optional
 //- warning if needed and missing
-Plugin.prototype.applyFileOptions = function(filename, options) {
+Plugin.prototype.setFileOptions = function(filename, options) {
   const clone = this.optionsDefault.clone();
   clone.combine(options);
   clone.filename = filename;
@@ -69,78 +79,33 @@ Plugin.prototype.run = function(filename, file) {
     this.optionsFile = this.optionsDefault;
   }
   
-  let headings = undefined;
-  
-  {//### read and modify the file contents
-    let contents = file.contents;
-    let fromBuffer = undefined;
-
-    if(is.string(contents)) {
-      fromBuffer = false;
-    } else {
-      //- assume that contents is a Buffer
-      contents = contents.toString('utf8');
-      fromBuffer = true;
-    }
-
-    //- result.contents might have changed!
-    const result = read(contents, options);
-
-    if(result.newIdsCount > 0) {
-      contents = result.contents;
-      
-      if(fromBuffer === true) {
-        //- if you started with a buffer,
-        //  then you should finish with one
-        contents = new Buffer(result.contents);
-      }
-      
-      file.contents = contents;
-    }
-
-    headings = result.headings;
-  }
-  
-  return {
-    result: headings,
-    isHeadingsList: true
-  };
+  return this.api.readFileContents(readContents, {
+    api: this.api,
+    filename: filename,
+    file: file,
+    options: options
+  });
 };
 
 //========//========//========//========//========//========//========//========
 
-//- (contents, options) => { contents, newIdsCount, [headings] }
-//- contents will have changed iif (newIdsCount > 0)
-function read(contents, options) {
-  const result = split(contents, options);
+function readContents(context) {
+  splitContents(context);
   
-  if(result.newIdsCount > 0) {
-    contents = result.contents;
-    contents = merge(contents, options);
+  if(context.newIdsCount <= 0) {
+    delete context.contents;
+  } else {
+    mergeContents(context);
   }
   
-  result.contents = contents;
-  const headings = result.headings;
-  const ic = headings.length;
-
-  for(let ix=0; ix<ic; ix++) {
-    const h = headings[ix];
-
-    headings[ix] = {
-      tag: h.tag,
-      id: h.id,
-      title: h.title,
-      level: h.level
-    };
-  }
-  
-  return result;
-}
+  const api = context.api;
+  const headings = context.headings;
+  return api.createTreeFromHeadings(headings);
+};
 
 //========//========//========//========//========//========//========//========
 
-//- (contents, options) => { [contents], newIdsCount, [headings] }
-function split(contents, options) {
+function splitContents(context) {
   //- m = rx.exec("prefix <h1 attributes>heading</h1> suffix")
   //  m[0]="<h1 attributes>heading</h1>", m[1]="h1", m[2]="1",
   //  m[3]=" attributes", m[4]="heading", m[5]="h1", m[6]="1"
@@ -150,11 +115,21 @@ function split(contents, options) {
   //  m[0]=" id='some-id'", m[1]="some-id"
   const rxA = /id=('([^']*)'|"([^"]*)")/gi;
   
+  const api = context.api;
+  const contents = context.contents;
+  const options = context.options;
   const selector = options.hSelector;
+  
   let ix=0, ic=contents.length;
-  let parts = [];
   let newIdsCount = 0;
   let headings = [];
+  let parts = [];
+  
+  const idgen = api.getIdGenerator({
+    slugFunc: options.slugFunc,
+    idPrefix: options.idPrefix,
+    idLengthLimit: options.idLengthLimit
+  });
   
   while(ix < ic) {
     const m = rxH.exec(contents);
@@ -175,7 +150,7 @@ function split(contents, options) {
     
     if(m[1] !== m[5]) {
       //- could be as simple as "<h1>...</H1>"
-      //- either contents is invalid, or rxH needs an update
+      //- either contents is invalid, or rxH could use an update
       throw new Error("doctoc-default: internal error with rxH");
     }
     
@@ -185,18 +160,23 @@ function split(contents, options) {
       tag: m[1],
       level: Number.parseInt(m[2]),
       attributes: m[3],
-      title: m[4]
+      title: m[4],
+      hadId: false,
+      id: undefined
     };
     
     if(selector.indexOf(m[2]) < 0) {
-      //- ignore this heading
+      //- heading does not match the selector
       h.ignored = true;
     } else if((h.attributes === "")
     || (m = rxA.exec(h.attributes)) === null) {
       //- no attributes, or no 'id=...' found
-      h.hadId = false;
-      h.id = util.format("%s%s",
-        options.idPrefix, options.slugFunc(h.title));
+      let id = idgen.nextId(h.title);
+      //- generated ids are unique, but ...
+      //  there still can be a collision with
+      //  pre-existing id values
+      //- unlikely in the scope of this plugin
+      h.id = id;
       headings.push(h);
       newIdsCount++;
     } else {
@@ -219,36 +199,48 @@ function split(contents, options) {
     });
   }
   
-  return {
-    contents: parts,
-    newIdsCount: newIdsCount,
-    headings: headings
-  };
-};
+  context.newIdsCount = newIdsCount;
+  context.contents = parts;
+  
+  //- normalize the heading entries
+  //  i.e. remove unnecessary properties
+  for(ix=0, ic=headings.length; ix<ic; ix++) {
+    const h = headings[ix];
+
+    headings[ix] = {
+      tag: h.tag,
+      id: h.id,
+      title: h.title,
+      level: h.level
+    };
+  }
+  
+  context.headings = headings;
+}
 
 //========//========//========//========//========//========//========//========
 
-//- ([contents], options) => contents
- function merge(contents, options) {
-    const ic = contents.length;
+function mergeContents(context) {
+  const contents = context.contents;
+  const ic = contents.length;
 
-    for(let ix=0; ix<ic; ix++) {
-      let part = contents[ix];
+  for(let ix=0; ix<ic; ix++) {
+    let part = contents[ix];
 
-      if(part.type !== "heading") {
-        part = part.contents;
-      } else if((part.ignored === true) || (part.hadId === true)) {
-        part = util.format("<%s%s>%s</%s>",
-          part.tag, part.attributes, part.title, part.tag
-        );
-      } else {
-        part = util.format("<%s id='%s'%s>%s</%s>",
-          part.tag, part.id, part.attributes, part.title, part.tag
-        );
-      }
-      
-      contents[ix] = part;
-    }//- for
+    if(part.type !== "heading") {
+      part = part.contents;
+    } else if((part.ignored === true) || (part.hadId === true)) {
+      part = util.format("<%s%s>%s</%s>",
+        part.tag, part.attributes, part.title, part.tag
+      );
+    } else {
+      part = util.format("<%s id='%s'%s>%s</%s>",
+        part.tag, part.id, part.attributes, part.title, part.tag
+      );
+    }
 
-    return contents.join("");
-};
+    contents[ix] = part;
+  }//- for
+
+  context.contents = contents.join("");
+}

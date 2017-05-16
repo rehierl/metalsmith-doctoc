@@ -156,7 +156,7 @@ function initializePlugins(options) {
     
     //- apply options.plugins[X].options
     if(definition.hasOwnProperty("options")) {
-      proxy.applyDefaultOptions(definition.options);
+      proxy.setDefaultOptions(definition.options);
     }
     
     //- replace defintion with proxy
@@ -279,7 +279,7 @@ function selectProxy(filename, flagValue, options) {
   //- apply file[doctocFlag].options
   if(flagValue.hasOwnProperty("options")) {
     let options = flagValue.options;
-    proxy.applyFileOptions(filename, options);
+    proxy.setFileOptions(filename, options);
   }
   
   return proxy;

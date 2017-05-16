@@ -3,8 +3,8 @@ metalsmith-doctoc
 ===============
 
 Please be aware that, as long as this plugin's version begins with '0.',
-**I consider this to be a 'Beta' version.** This means that it should basically
-work, but still needs some editing/review/testing.
+**I consider this to be a 'Under development' version.** This means that it
+should basically work, but still needs some improvement/editing/review/testing.
 
 The main purpose of this Metalsmith
 ([npmjs](https://www.npmjs.com/package/metalsmith),
@@ -28,8 +28,8 @@ npm install metalsmith-doctoc
 
 ## Overview
 
-In general you will use YAML frontmatter to define properties that mark your
-files as "to be processed":
+In general you will use frontmatter properties to mark your files as
+"to be processed":
 
 ```
 ---
@@ -65,8 +65,8 @@ integrated LP with the default options "h1-6".
 
 When metalsmith's pipeline is run, MDT will then execute the integrated LP when
 it encounters that file. 'doctoc-default' will then extract the file's TOC
-and generate a menu tree. Once it receives that tree, MDT will then assign it
-to the file's 'doctoc-tree' property.
+and generate a menu tree. Once MDT receives that tree, it will assign it to the
+file's 'doctoc-tree' property.
 
 ## Options
 
@@ -242,17 +242,18 @@ Heading {
 
 ## Integrated plugins
 
-MDT comes with the following LPs that can be used by specifying their name
-inside options.plugins. Their main purpose though is to showcase how to
-implement and use lightweight plugins.
+MDT comes with the following LPs:
 
 * [doctoc-default](https://github.com/rehierl/metalsmith-doctoc/tree/master/src/doctoc-default)
   is intended to be run after Markdown files have been converted into HTML files.
-  It will use reqgular expressions to analyze these files and add id attributes
+  It will use regular expressions to analyze these files and add id attributes
   to heading tags if needed. When done it will return a list of Heading objects
   to MDT for further processing.
 
-## List of LPs
+These can be used by specifying their name inside options.plugins. Their main
+purpose though is to showcase how to implement LPs.
+
+## List of available LPs
 
 * metalsmith-doctoc-jsdom
   ([npmjs](https://www.npmjs.com/package/metalsmith-doctoc-jsdom),
@@ -262,9 +263,12 @@ implement and use lightweight plugins.
   [github](https://github.com/tmpvar/jsdom))
   to search for heading tags inside HTML content.
 
-If you have implemented a plugin to be used with MDT, please name it using
-'metalsmith-doctoc-' as prefix. This will allow your plugin to be easily found
-by searching on [npmjs](https://www.npmjs.com/search?q=metalsmith-doctoc-).
+If you intend to create a plugin for MDT and need some documentation, then take
+a look at the [API documentation](https://github.com/rehierl/metalsmith-doctoc/tree/master/readme-api.md).
+
+If you have implemented a plugin for MDT, please prefix it's name with
+'metalsmith-doctoc-'. This will allow your plugin to be easily found by
+[searching on npmjs](https://www.npmjs.com/search?q=metalsmith-doctoc-).
 
 ## Error handling
 
@@ -278,132 +282,11 @@ try {
 }
 ```
 
-In some cases, MDT to create it's own error in order to point out, with which
-options.plugins configuration or file it had a problem. As this this will
-discard the error that triggered a problem, this initial error will be attached
-to the new Error object via a 'innerError' property. Check these properties if
+In some cases, MDT needs to create it's own error in order to point out, with
+which options.plugins configuration or file it had a problem. As this this will
+hide the error that triggered a problem, this initial error will be attached
+to the new error's object via a 'innerError' property. Check these properties if
 MDT's error messages lack the information you need to solve an issue.
-
-## Plugins API
-
-If you intend to write a plugin for MDT, you essentially agree to generate a
-menu tree that any user can use as if MDT created this structure itself.
-The main advantage for you is that you can concentrate on what your plugin is
-actually supposed to do, which is to read TOC menus from file contents.
-
-Take a look at the
-[./src/doctoc-default](https://github.com/rehierl/metalsmith-doctoc/tree/master/src/doctoc-default)
- subfolder for an example of how to implement a basic LP for MDT.
-
-```js
-Plugin interface {
-  //- no properties are required or accessed.
-  //- interaction with plugins is done using methods.
-  //any_property: any_value,
-
-  //- optional
-  //- void function(anything)
-  //- if options.plugins[$name].options does exist,
-  //  it's value will be passed on to this function
-  function applyDefaultOptions(options);
-  
-  //- optional
-  //- void function(anything)
-  //- if file[options.doctocFlag].options does exist,
-  //  it's value will be passed on to this function
-  function applyFileOptions(filename, options);
-
-  //- required
-  //- RunResponse function(string, object)
-  function run(filename, file);
-}
-```
-
-Note that MDT does implements a proxy to wrap up any LP. This proxy object will
-handle all cases in which any of the above optional functions are missing.
-
-If an options value is encountered and if the corresponding applyXXXOptions()
-method is missing, a warning will be issued using Node's debug module; enable
-the 'metalsmith-doctoc' flag to see these warnings.
-
-The 'Plugin.run()' function must return an object which holds run's result and
-contains meta-information about the plugin's result:
-
-```js
-RunResponse {
-  //- required
-  //- $result = ($headings | $root)
-  //- $headings = [ Heading* ]
-  //  an array of Heading objects
-  //- $root = the topmost node of a TOC menu
-  result: $result,
-
-  //- optional
-  //- set true if response.result is a $headings array
-  isHeadingsList: false,
-  
-  //- optional
-  //- set true to prevent the proxy from overwriting
-  //  the following node properties:
-  //  node.next, node.previous, node.childrenAll
-  dontFinalizeNodes, false
-
-  //- optional
-  //- set true to not normalize all node level values
-  //- 'normalized' means that for all nodes,
-  //  the following is true: (child.level = parent.level+1),
-  //  if (and only if) (child.parent = parent)
-  dontNormalizeLevelValues: false,
-}
-```
-
-The proxy uses this meta-information object to determine if the plugin's actual
-result (i.e. RunResponse.result) needs further processing.
-
-### isHeadingsList
-
-If RunResponse.isHeadingsList is set, RunResponse.result is expected to be
-an array/list of Heading objects. In that case, Heading.level is a
-needed/required property!
-
-If (list[i].level < list[i+n].level), then proxy will assume that list[i+n] is
-supposed to be a child heading of list[i]. Hence it is important that list
-contains the heading entries in order of appearance.
-
-If RunResponse.isHeadingsList is not set, RunResponse.result is
-expected to be a root Node object; i.e. the topmost node of a menu tree.
-
-### dontFinalizeNodes
-
-If you return a menu tree yourself, you may omit node.root, node.next,
-node.previous and node.childrenAll as long as you don't set
-RunResponse.dontFinalizeNodes to true.
-
-Proxy will create/overwrite all these properties if this setting remains false.
-
-### dontNormalizeLevelValues
-
-A random HTML document may contain h1 and h3, but no h2 heading tags. The TOC
-menu nodes of such a document will then assign number values 1 and 3 to the
-node.level properties. This will cause problems if these values are then taken
-to generate an indentation prefix, because the menu entries will jump from a
-1-wide indent to a 3-wide indent.
-
-```
-//- before normalization, the following
-//  is true for some X and Y in [+1,+Infinity)
-(node.level = node.parent.level+X) and
-(node2.level = node2.parent.level+Y) and
-not necessarily (X == Y)
-```
-
-To avoid this issue, node.level values can be normalized to only differ by 1:
-
-```
-//- after normalization, the following
-//  will be true for all node objects
-node.level = node.parent.level+1
-```
 
 ## License
 

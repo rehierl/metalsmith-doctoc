@@ -61,6 +61,9 @@ function Options() {
   //  with $idPrefix; i.e. '<h1 id="$idPrefix$id">$title</h1>'.
   //- set to "" if no prefix is needed.
   this.idPrefix = "doctoc-";
+  
+  //- todo
+  this.idLengthLimit = 256;
 }
 
 //========//========//========//========//========//========//========//========
