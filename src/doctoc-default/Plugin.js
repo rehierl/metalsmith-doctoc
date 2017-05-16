@@ -90,6 +90,7 @@ Plugin.prototype.run = function(filename, file) {
 //========//========//========//========//========//========//========//========
 
 function readContents(context) {
+  readExistingIds(context);
   splitContents(context);
   
   if(context.newIdsCount <= 0) {
@@ -105,15 +106,63 @@ function readContents(context) {
 
 //========//========//========//========//========//========//========//========
 
+function readExistingIds(context) {
+  const makeIdsUnique = context.options.makeIdsUnique;
+  
+  if(makeIdsUnique !== true) {
+    context.existingIds = {};
+    return;
+  }
+  
+  //- m = rx.exec("id='some-id'")
+  //  m[0]="id='some-id'", m[1]="'some-id'", m[2]="some-id"
+  const rxIds = /id=('([^']*)'|"([^"]*)")/gi;
+
+  //- existingIds: { (<id-value>: true)* }
+  const existingIds = {};
+  
+  const contents = context.contents;
+  let ix=0, ic=contents.length;
+
+  while(ix < ic) {
+    const match = rxIds.exec(contents);
+
+    if(match === null) {
+      //- no (more) match found
+      break;
+    }
+
+    const id = match[2] ? match[2] : match[3];
+
+    if(existingIds[id]) {
+      //- this id is already defined multiple times
+      //throw new Error(util.format(
+      //  "this file already defines id [%s] multiple times", id
+      //));
+    } else {
+      existingIds[id] = true;
+    }
+
+    ix = rxIds.lastIndex;
+  }
+  
+  context.existingIds = existingIds;
+}
+
+//========//========//========//========//========//========//========//========
+
 function splitContents(context) {
   //- m = rx.exec("prefix <h1 attributes>heading</h1> suffix")
   //  m[0]="<h1 attributes>heading</h1>", m[1]="h1", m[2]="1",
   //  m[3]=" attributes", m[4]="heading", m[5]="h1", m[6]="1"
   const rxH = /<(h([1-6]))([^>]*)>([^<]*)<\/(h([1-6]))>/gi;
   
-  //- m = rx.exec(" id='some-id'")
-  //  m[0]=" id='some-id'", m[1]="some-id"
-  const rxA = /id=('([^']*)'|"([^"]*)")/gi;
+  //- m = rx.exec("id='some-id'")
+  //  m[0]="id='some-id'", m[1]="'some-id'", m[2]="some-id"
+  const rxIds = /id=('([^']*)'|"([^"]*)")/gi;
+  
+  //- existingIds: { (<id-value>: true)* }
+  const existingIds = context.existingIds;
   
   const api = context.api;
   const contents = context.contents;
@@ -124,6 +173,7 @@ function splitContents(context) {
   let newIdsCount = 0;
   let headings = [];
   let parts = [];
+  let match = null;
   
   const idgen = api.getIdGenerator({
     slugFunc: options.slugFunc,
@@ -132,61 +182,62 @@ function splitContents(context) {
   });
   
   while(ix < ic) {
-    const m = rxH.exec(contents);
+    match = rxH.exec(contents);
     
-    if(m === null) {
-      //- no match found
+    if(match === null) {
+      //- no (more) match found
       break;
     }
     
-    if(ix < m.index) {
+    if(ix < match.index) {
       //- some non-heading prefix
       parts.push({
         type: "other",
-        contents: contents.substring(ix, m.index)
+        contents: contents.substring(ix, match.index)
       });
-      ix = m.index;
+      ix = match.index;
     }
     
-    if(m[1] !== m[5]) {
+    if(match[1] !== match[5]) {
       //- could be as simple as "<h1>...</H1>"
       //- either contents is invalid, or rxH could use an update
       throw new Error("doctoc-default: internal error with rxH");
     }
     
-    let h = {
+    let heading = {
       type: "heading",
       ignored: false,
-      tag: m[1],
-      level: Number.parseInt(m[2]),
-      attributes: m[3],
-      title: m[4],
+      tag: match[1],
+      level: Number.parseInt(match[2]),
+      attributes: match[3],
+      title: match[4],
       hadId: false,
       id: undefined
     };
     
-    if(selector.indexOf(m[2]) < 0) {
+    if(selector.indexOf(match[2]) < 0) {
       //- heading does not match the selector
-      h.ignored = true;
-    } else if((h.attributes === "")
-    || (m = rxA.exec(h.attributes)) === null) {
-      //- no attributes, or no 'id=...' found
-      let id = idgen.nextId(h.title);
-      //- generated ids are unique, but ...
-      //  there still can be a collision with
-      //  pre-existing id values
-      //- unlikely in the scope of this plugin
-      h.id = id;
-      headings.push(h);
-      newIdsCount++;
+      heading.ignored = true;
+    } else if((match = rxIds.exec(heading.attributes)) !== null) {
+      //- id attribute found
+      heading.hadId = true;
+      heading.id = match[2] ? match[2] : match[3];
+      headings.push(heading);
     } else {
-      //- 'id=...' found
-      h.hadId = true;
-      h.id = m[1];
-      headings.push(h);
+      //- no id attribute found
+      let id = idgen.nextId(heading.title);
+      
+      while(existingIds[id]) {
+        id = idgen.nextId();
+      }
+      
+      existingIds[id] = true;
+      heading.id = id;
+      headings.push(heading);
+      newIdsCount++;
     }
     
-    parts.push(h);
+    parts.push(heading);
     ix = rxH.lastIndex;
   }//- while
   
@@ -205,13 +256,13 @@ function splitContents(context) {
   //- normalize the heading entries
   //  i.e. remove unnecessary properties
   for(ix=0, ic=headings.length; ix<ic; ix++) {
-    const h = headings[ix];
+    const heading = headings[ix];
 
     headings[ix] = {
-      tag: h.tag,
-      id: h.id,
-      title: h.title,
-      level: h.level
+      tag: heading.tag,
+      id: heading.id,
+      title: heading.title,
+      level: heading.level
     };
   }
   

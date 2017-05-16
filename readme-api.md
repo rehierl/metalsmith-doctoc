@@ -7,8 +7,11 @@ a file that needs to be processed, it will look up the corresponding proxy and
 will use it to communicate with the plugin.
 
 This approach allows plugins to not support the whole Plugin interface because
-missing functionality will be hidden by the proxy objects.Furthermore, proxy
-objects allow plugins to access PluginsAPI object.
+missing functionality will be hidden by proxy objects. Furthermore, proxy
+objects allow plugins to access a PluginsApi object.
+
+If you have created a working plugin and plan to upload it, please name it using
+"metalsmith-doctoc-" as prefix. This will allow it to be easily found on npmjs.
 
 ## Plugin object
 
@@ -36,8 +39,8 @@ Plugin {
   void setFileOptions(string filename, Object options);
 
   //- required
-  //- this function allows to execute a plugin's main
-  //  functionality: read a menu tree from a given file.
+  //- this function will implement plugin's main purpose:
+  //  read a menu tree from a given file.
   //- this function must return a fully specified menu
   //  tree by its root node object.
   Node run(string filename, Object file);
@@ -69,11 +72,14 @@ sure to document this decision.
 
 ## PluginsApi object
 
+This object provides functionality that can be used to simplify the development
+of a plugin.
+
 ```js
 PluginsApi {
   //- this function expects context to have a 'file'
   //  property set to metalsmith's file object;
-  //  any other context property will remain as is
+  //  any other context property will remain as is.
   //- it will turn 'file.contents' into a string
   //  and attach it as 'context.contents'
   //- it will then execute readFunc(context)
@@ -85,20 +91,20 @@ PluginsApi {
     void readFunc(Object context),
     Object context);
 
-  //- this function will return an IdGenerator object that
-  //  can be used to generate unique id values.
-  //- a new object will be returned with each call.
+  //- this function will return an IdGenerator object
+  //  that can be used to generate unique id values.
+  //- each call will create a new instance.
   IdGenerator getIdGenerator(Object options);
 
   //- turns an array of Heading entries into a fully
   //  specified node tree; i.e. all in one step.
   //- the node returned will be the tree's root node
-  //- all node.level properties will be normalized
+  //- all node.level values will be normalized
   Node createTreeFromHeadings(Heading[] headings);
 
   //- turns an array of Heading entries into a node tree
   //  and returns the tree's root node.
-  //- this will create nodes objects with the following
+  //- this will create node objects with the following
   //  properties: heading, level, parent, children
   Node createNodesFromHeadings(Heading[] headings);
   
@@ -119,7 +125,7 @@ PluginsApi {
 This also applies to PluginsApi.createNodesFromHeadings().
 
 Each heading entry must have a level property (e.g. headings[i].level=2 in
-case of a &lt;h2&gt; heading tag). All other properties will remain untouched.
+case of a &lt;h2&gt; heading tag). All other properties will remain as they are.
 
 Each node.heading property will be set to an entry of the given array (i.e.
 node.heading = headings[i]).
@@ -131,15 +137,12 @@ So the order of heading entries does matter!
 
 ### IdGenerator object
 
-The following issues can occur when using slug-like functions to generate
-new id values:
-
-1) The result could be identical to an id generated previously.
-2) The result could be identical to an id that is already defined inside
-   a content file.
+The following issues may occur when using slug-like functions to generate
+new id values: The result could be (1) identical to an id generated previously,
+or (2) identical to an id that is already defined inside of a content file.
 
 An IdGenerator object can be used to completely avoid issues resulting from (1)
-and to help with issues resulting from (2).
+and help with issues resulting from (2).
 
 ```js
 IdGenerator {
@@ -154,13 +157,13 @@ IdGenerator {
   //  the specified amount of characters.
   void set(Object properties);
 
-  //- an id value will be generated as above; i.e.
+  //- an id value will be generated as follows;
   //  $id = limit(idPrefix + slugFunc(text))
   //- if this $id value has been generated the first
   //  time, it will be added to an internal cache.
   //- if this $id value is found inside the cache,
   //  it will be suffixed with a unqiue number:
-  //  e.g. $id = $id + "-" + nextNum
+  //  $id = $id + "-" + nextNum
   //- this function is sufficient to deal with issue (1)
   string nextId(string text);
 
@@ -172,8 +175,8 @@ IdGenerator {
   //- this function can be used to deal with issue (2)
   string nextId();
   
-  //- after a calling this function, an IdGenerator won't
-  //  have any knowledge of previously generated id values.
+  //- after calling this function, an IdGenerator won't have
+  //  any knowledge of any previously generated id values.
   void clearCache();
 }
 ```

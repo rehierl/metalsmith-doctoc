@@ -9,16 +9,20 @@ should basically work, but still needs some improvement/editing/review/testing.
 The main purpose of this Metalsmith
 ([npmjs](https://www.npmjs.com/package/metalsmith),
 [github](https://github.com/segmentio/metalsmith))
-plugin is to provide a framework for LPs. metalsmith-doctoc **(MDT)** will invoke
-lightweight plugins **(LPs)** for each file they are configured for, which they
-analyze in order to generate a table-of-contents **(TOC)** menu tree. These TOC
-menu trees can then be used in combination with a template engine to render
-menus into your files.
+plugin is to provide a framework for lightweight plugins **(LPs)**.
+metalsmith-doctoc **(MDT)** will invoke LPs for each file they are configured
+for, which they will analyze in order to generate a table-of-contents **(TOC)**
+menu tree. These TOC menu trees can then be used in combination with a template
+engine to render menus into your files.
+
+Take a look at the
+[API documentation](https://github.com/rehierl/metalsmith-doctoc/tree/master/readme-api.md)
+if you are interested in creating your own plugin for MDT.
 
 ## TODO
 
 - test require() with Options.resolveFunc()
-- validation of menu trees returned by plugins
+- validation of menu trees returned by plugins?
 
 ## Installation
 
@@ -41,11 +45,9 @@ file content
 When such a file is encountered, MDT will use the property's value to determine
 which LP configuration to use in order to process that file. In the above case,
 "default" refers to a named configuration that MDT needs to look up inside it's
-options object:
+own options object:
 
 ```js
-const doctoc = require('metalsmith-doctoc');
-
 .use(doctoc({
   filter: "**",
   docotocFlag: "doctoc-flag",
@@ -59,18 +61,18 @@ const doctoc = require('metalsmith-doctoc');
 })
 ```
 
-This essentially tells MDT to initialize the integrated LP "doctoc-default" and
-make it use-able via the name "default". This will also initialize the
-integrated LP with the default options "h1-6".
+This essentially tells MDT to initialize the integrated plugin "doctoc-default"
+and make it use-able via the "default" configuration. This will also initialize
+the integrated plugin with default options defined by "h1-6".
 
-When metalsmith's pipeline is run, MDT will then execute the integrated LP when
+When metalsmith's pipeline is run, MDT will execute the integrated LP when
 it encounters that file. 'doctoc-default' will then extract the file's TOC
 and generate a menu tree. Once MDT receives that tree, it will assign it to the
 file's 'doctoc-tree' property.
 
-## Options
+## Options object
 
-The options object that MDT will accept is as follows:
+MDT's options object is defined as follows:
 
 ```js
 Options {
@@ -109,8 +111,8 @@ Options {
   //- $plugin := ($name | $class | $instance)
   //  i.e. either a $name, a $class function, or an $instance
   //- $instance := objects returned by 'new $class(...)'
-  //- $options := anything that is allowed by the plugin's
-  //  $class.applyDefaultOptions() method.
+  //- $options := anything that will be accepted by the
+  //  corresponding plugin.
   plugins: {
     "default": { plugin: "doctoc-default", options: "h1-6" }
   },
@@ -158,8 +160,8 @@ file[options.doctocFlag] = $value
 //  i.e. there must be a config property,
 //  but there may be an optional options property.
 //  any other additional property will be ignored.
-//- $options := anything that is allowed by the plugin's
-//  $class.applyFileOptions($options) method.
+//- $options := anything that will be accepted by the
+//  configured plugin.
 ```
 
 ### file[options.doctocTree]
@@ -169,7 +171,8 @@ file[options.doctocTree] = $root
 //- $root := the topmost node of the menu tree
 ```
 
-This file property will hold an instance of a node object:
+This file property will hold an instance of a node object, which is defined
+as follows:
 
 ```js
 Node {
@@ -220,9 +223,10 @@ Node {
 }
 ```
 
-Note that the actual properties of the node.heading object is not relevant to
-MDT and must be defined/documented by the LP that created these. A Heading
-object could have the following properties:
+Note that the exact definition of the Node.heading property is not important for
+MDT. These objects must be defined by the LP that created them.
+
+A heading object might have the following properties:
 
 ```js
 Heading {
@@ -240,20 +244,17 @@ Heading {
 }
 ```
 
-## Integrated plugins
+## List of plugins
 
-MDT comes with the following LPs:
+MDT comes with the following LP:
 
 * [doctoc-default](https://github.com/rehierl/metalsmith-doctoc/tree/master/src/doctoc-default)
   is intended to be run after Markdown files have been converted into HTML files.
   It will use regular expressions to analyze these files and add id attributes
-  to heading tags if needed. When done it will return a list of Heading objects
-  to MDT for further processing.
+  to heading tags if needed. It's main purpose is to showcase how to implement a
+  pluign for MDT.
 
-These can be used by specifying their name inside options.plugins. Their main
-purpose though is to showcase how to implement LPs.
-
-## List of available LPs
+The following plugins must be installed separately:
 
 * metalsmith-doctoc-jsdom
   ([npmjs](https://www.npmjs.com/package/metalsmith-doctoc-jsdom),
@@ -262,13 +263,16 @@ purpose though is to showcase how to implement LPs.
   ([npmjs](https://www.npmjs.com/package/jsdom),
   [github](https://github.com/tmpvar/jsdom))
   to search for heading tags inside HTML content.
+* metalsmith-doctoc-cheerio
+  ([npmjs](https://www.npmjs.com/package/metalsmith-doctoc-cheerio),
+  [github](https://github.com/rehierl/metalsmith-doctoc-cheerio))
+  will use cheerio
+  ([npmjs](https://www.npmjs.com/package/cheerio),
+  [github](https://github.com/cheeriojs/cheerio))
+  to search for heading tags inside HTML content.
 
-If you intend to create a plugin for MDT and need some documentation, then take
-a look at the [API documentation](https://github.com/rehierl/metalsmith-doctoc/tree/master/readme-api.md).
-
-If you have implemented a plugin for MDT, please prefix it's name with
-'metalsmith-doctoc-'. This will allow your plugin to be easily found by
-[searching on npmjs](https://www.npmjs.com/search?q=metalsmith-doctoc-).
+If you feel lucky, try [searching on npmjs](https://www.npmjs.com/search?q=metalsmith-doctoc-)
+for more plugins.
 
 ## Error handling
 
@@ -283,10 +287,10 @@ try {
 ```
 
 In some cases, MDT needs to create it's own error in order to point out, with
-which options.plugins configuration or file it had a problem. As this this will
-hide the error that triggered a problem, this initial error will be attached
-to the new error's object via a 'innerError' property. Check these properties if
-MDT's error messages lack the information you need to solve an issue.
+which plugins configuration or file it had a problem. As this will hide the
+error that triggered a problem, the initial error object will be attached
+to the new error's object via a 'innerError' property. Check these if MDT's
+error messages lack the information you need to solve an issue.
 
 ## License
 

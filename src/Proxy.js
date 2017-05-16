@@ -31,9 +31,8 @@ Proxy.prototype.setPluginsApi = function() {
     return;//- just ignore this call
   }
 
-  let api = new PluginsApi();
-  
   try {
+    let api = new PluginsApi();
     this.plugin.setPluginsApi(api);
   } catch(error) {
     let newError = new Error(util.format(

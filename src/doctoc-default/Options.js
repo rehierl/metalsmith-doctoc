@@ -62,8 +62,17 @@ function Options() {
   //- set to "" if no prefix is needed.
   this.idPrefix = "doctoc-";
   
-  //- todo
+  //- this will limit (idPrefix + slugFunc(title)) to the
+  //  specified number of characters.
+  //- id values might exceed that limit by some unique
+  //  number suffix.
   this.idLengthLimit = 256;
+  
+  //- if set to true, this will ensure that generated id values
+  //  won't collide with any pre-existing ids.
+  //- turned off by default as this will neagively impact the
+  //  plugin's performance.
+  this.makeIdsUnique = false;
 }
 
 //========//========//========//========//========//========//========//========
@@ -151,7 +160,8 @@ function readSelector(selector) {
 
 //========//========//========//========//========//========//========//========
 
-//- e.g. options = { hRange: "h1-6" }
+//- options: { hRange: "h1-6" }
+//  => { hMin: 1, hMax: 6 }
 function removeRange(options) {
   if(!options.hasOwnProperty("hRange")) {
     return;//- there is nothing to do
@@ -174,7 +184,8 @@ function removeRange(options) {
 
 //========//========//========//========//========//========//========//========
 
-//- e.g. options = { hMin: 1, hMax: 6 }
+//- options: { hMin: 1, hMax: 6 }
+//  => { hSelector: "h1, H1, ... h6, H6" }
 function removeMinMax(options) {
   const hMinExists = options.hasOwnProperty("hMin");
   const hMaxExists = options.hasOwnProperty("hMax");
@@ -237,6 +248,16 @@ function validateOptions(options) {
       ));
     }
   }
+  
+  key = "slugFunc";
+  if(options.hasOwnProperty(key)) {
+    value = options[key];
+    if(!is.fn(value)) {
+      throw new Error(util.format(
+        "options.%s: is not a function", key
+      ));
+    }
+  }
 
   key = "idPrefix";
   if(options.hasOwnProperty(key)) {
@@ -249,12 +270,24 @@ function validateOptions(options) {
     }
   }
   
-  key = "slugFunc";
+  key = "idLengthLimit";
   if(options.hasOwnProperty(key)) {
     value = options[key];
-    if(!is.fn(value)) {
+    if(!is.integer(value) || is.infinite(value) || (value <= 0)) {
       throw new Error(util.format(
-        "options.%s: is not a function", key
+        "options.%s: [%s] is not a valid integer value",
+        key, value
+      ));
+    }
+  }
+  
+  key = "makeIdsUnique";
+  if(options.hasOwnProperty(key)) {
+    value = options[key];
+    if(!is.bool(value)) {
+      throw new Error(util.format(
+        "options.%s: [%s] is not a boolean value",
+        key, value
       ));
     }
   }

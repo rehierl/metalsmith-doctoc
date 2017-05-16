@@ -9,8 +9,7 @@ worth mentioning. They merely hold a "flat" sequence of HTML tags, which
 usually doesn't have any &lt;div&gt; tags.
 
 This plugin will use regular expressions to search for heading tags (&lt;h1&gt;
-to &lt;h6&gt;) and will add id attributes to them if needed. It will then return
-a list of Heading objects to metalsmith-doctoc for further processing.
+to &lt;h6&gt;) and will add id attributes to them if needed.
 
 ## Options object
 
@@ -67,7 +66,19 @@ Options {
   //  prefixed with $idPrefix;
   //  i.e. '<h1 id="$idPrefix$id">$title</h1>'.
   //- set to "" if you don't want to use a prefix.
-  idPrefix: "doctoc-"
+  idPrefix: "doctoc-",
+
+  //- this will limit id = (idPrefix + slugFunc(title))
+  //  to the specified number of characters.
+  //- id values might exceed that limit by some unique
+  //  number suffix.
+  idLengthLimit: 256,
+  
+  //- if set to true, this will ensure that generated id values
+  //  won't collide with any pre-existing ids.
+  //- turned off by default as this will neagively impact the
+  //  plugin's performance.
+  makeIdsUnique = false
 }
 ```
 
@@ -99,9 +110,9 @@ It is also possible to provide a selector string:
 ... options: 'h1, h2, h3, h4' ...
 ```
 
-## Heading objects
+## Node.heading objects
 
-doctoc-default's Heading objects will have the following properties:
+These objects will have the following properties:
 
 ```js
 Heading {
