@@ -14,19 +14,19 @@ function Plugin(userOptions) {
   if(!(this instanceof Plugin)) {
     return new Plugin(userOptions);
   }
-  
+
   //- used as default/base options when
   //  applying plugin-specific settings
   this.options = new Options();
   this.options.combine(userOptions);
-  
+
   //- used as default/base options when
   //  applying file-specific settings
   this.optionsDefault = this.options;
-  
+
   //- used when processing a file
   this.optionsFile = this.options;
-  
+
   //- MDT's plugins API
   this.api = undefined;
 }
@@ -64,21 +64,21 @@ Plugin.prototype.setFileOptions = function(filename, options) {
 //- public, required
 Plugin.prototype.run = function(filename, file) {
   let options = undefined;
-  
+
   {//## choose which options to use
     options = this.optionsFile;
-    
+
     if(!options.hasOwnProperty("filename")) {
       options = this.optionsDefault;
     } else if(options.filename !== filename) {
       options = this.optionsDefault;
     }
-    
+
     //- file options should only be used for a single file
     //- reset file options to the default options
     this.optionsFile = this.optionsDefault;
   }
-  
+
   return this.api.readFileContents(readContents, {
     api: this.api,
     filename: filename,
@@ -92,13 +92,13 @@ Plugin.prototype.run = function(filename, file) {
 function readContents(context) {
   readExistingIds(context);
   splitContents(context);
-  
+
   if(context.newIdsCount <= 0) {
     delete context.contents;
   } else {
     mergeContents(context);
   }
-  
+
   const api = context.api;
   const headings = context.headings;
   return api.createTreeFromHeadings(headings);
@@ -108,19 +108,19 @@ function readContents(context) {
 
 function readExistingIds(context) {
   const makeIdsUnique = context.options.makeIdsUnique;
-  
+
   if(makeIdsUnique !== true) {
     context.existingIds = {};
     return;
   }
-  
+
   //- m = rx.exec("id='some-id'")
   //  m[0]="id='some-id'", m[1]="'some-id'", m[2]="some-id"
   const rxIds = /id=('([^']*)'|"([^"]*)")/gi;
 
   //- existingIds: { (<id-value>: true)* }
   const existingIds = {};
-  
+
   const contents = context.contents;
   let ix=0, ic=contents.length;
 
@@ -145,7 +145,7 @@ function readExistingIds(context) {
 
     ix = rxIds.lastIndex;
   }
-  
+
   context.existingIds = existingIds;
 }
 
@@ -156,39 +156,39 @@ function splitContents(context) {
   //  m[0]="<h1 attributes>heading</h1>", m[1]="h1", m[2]="1",
   //  m[3]=" attributes", m[4]="heading", m[5]="h1", m[6]="1"
   const rxH = /<(h([1-6]))([^>]*)>([^<]*)<\/(h([1-6]))>/gi;
-  
+
   //- m = rx.exec("id='some-id'")
   //  m[0]="id='some-id'", m[1]="'some-id'", m[2]="some-id"
   const rxIds = /id=('([^']*)'|"([^"]*)")/gi;
-  
+
   //- existingIds: { (<id-value>: true)* }
   const existingIds = context.existingIds;
-  
+
   const api = context.api;
   const contents = context.contents;
   const options = context.options;
   const selector = options.hSelector;
-  
+
   let ix=0, ic=contents.length;
   let newIdsCount = 0;
   let headings = [];
   let parts = [];
   let match = null;
-  
+
   const idgen = api.getIdGenerator({
     slugFunc: options.slugFunc,
     idPrefix: options.idPrefix,
     idLengthLimit: options.idLengthLimit
   });
-  
+
   while(ix < ic) {
     match = rxH.exec(contents);
-    
+
     if(match === null) {
       //- no (more) match found
       break;
     }
-    
+
     if(ix < match.index) {
       //- some non-heading prefix
       parts.push({
@@ -197,13 +197,13 @@ function splitContents(context) {
       });
       ix = match.index;
     }
-    
+
     if(match[1] !== match[5]) {
       //- could be as simple as "<h1>...</H1>"
       //- either contents is invalid, or rxH could use an update
       throw new Error("doctoc-default: internal error with rxH");
     }
-    
+
     let heading = {
       type: "heading",
       ignored: false,
@@ -214,7 +214,7 @@ function splitContents(context) {
       hadId: false,
       id: undefined
     };
-    
+
     if(selector.indexOf(match[2]) < 0) {
       //- heading does not match the selector
       heading.ignored = true;
@@ -226,21 +226,21 @@ function splitContents(context) {
     } else {
       //- no id attribute found
       let id = idgen.nextId(heading.title);
-      
+
       while(existingIds[id]) {
         id = idgen.nextId();
       }
-      
+
       existingIds[id] = true;
       heading.id = id;
       headings.push(heading);
       newIdsCount++;
     }
-    
+
     parts.push(heading);
     ix = rxH.lastIndex;
   }//- while
-  
+
   if(ix < ic) {
     //- some non-heading suffix,
     //  or no heading at all
@@ -249,10 +249,10 @@ function splitContents(context) {
       contents: contents.substring(ix)
     });
   }
-  
+
   context.newIdsCount = newIdsCount;
   context.contents = parts;
-  
+
   //- normalize the heading entries
   //  i.e. remove unnecessary properties
   for(ix=0, ic=headings.length; ix<ic; ix++) {
@@ -265,7 +265,7 @@ function splitContents(context) {
       level: heading.level
     };
   }
-  
+
   context.headings = headings;
 }
 

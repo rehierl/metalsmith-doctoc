@@ -32,7 +32,7 @@ Plugin {
   //- if options.plugins[$name].options does exist,
   //  it's value will be passed on to this function
   void setDefaultOptions(Object options);
-  
+
   //- optional
   //- if file[options.doctocFlag].options does exist,
   //  it's value will be passed on to this function
@@ -107,7 +107,7 @@ PluginsApi {
   //- this will create node objects with the following
   //  properties: heading, level, parent, children
   Node createNodesFromHeadings(Heading[] headings);
-  
+
   //- this function will finalize all nodes;
   //  i.e. it will set the missing properties:
   //  root, next, previous, childrenAll
@@ -174,7 +174,7 @@ IdGenerator {
   //  number suffix.
   //- this function can be used to deal with issue (2)
   string nextId();
-  
+
   //- after calling this function, an IdGenerator won't have
   //  any knowledge of any previously generated id values.
   void clearCache();

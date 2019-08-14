@@ -21,7 +21,7 @@ Options {
   //- with $min and $max in [1,6] and ($min <= $max)
   //- $min will replace hMin and $max will replace hMax
   hRange: "h1-6",
-  
+
   //- an integer value in [1,6]
   //- if hMin=X, then this plugin will
   //  ignore any heading tag <hN> if (N < X)
@@ -45,7 +45,7 @@ Options {
   //- if hMin or hMax are given, they will override hSelector
   //- hSelector is what will be used to find the heading tags
   hSelector: 'h1, h2, h3, h4, h5, h6',
-  
+
   //- string function(string)
   //- this function will be used to calculate a missing id:
   //  assuming "<h1>$title</h1>" was found, an id will be
@@ -73,7 +73,7 @@ Options {
   //- id values might exceed that limit by some unique
   //  number suffix.
   idLengthLimit: 256,
-  
+
   //- if set to true, this will ensure that generated id values
   //  won't collide with any pre-existing ids.
   //- turned off by default as this will neagively impact the

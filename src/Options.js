@@ -69,7 +69,7 @@ function Options() {
   //- this.plugins must have an entry
   //  with ($configName == this.default)
   this.default = "default";
-  
+
   //- when metalsmith-doctoc concludes that $name is
   //  not the name of an integrated plugin, it will
   //  try to execute options.resolveFunc($name)
@@ -98,7 +98,7 @@ function Options() {
 };
 
 //========//========//========//========//========//========//========//========
-  
+
 Options.prototype.combine = function(options) {
   if(arguments.length === 0) {
     //- ignore this call
@@ -111,7 +111,7 @@ Options.prototype.combine = function(options) {
 
   validateOptions(options);
   const thisInstance = this;
-  
+
   Object.getOwnPropertyNames(this)
   .forEach(function(current, index, array) {
     if(options.hasOwnProperty(current)) {
@@ -189,11 +189,11 @@ function isString(value) {
   if(!is.string(value)) {
     return false;
   }
-  
+
   if(value.trim().length === 0) {
     return false;
   }
-  
+
   return true;
 }
 
@@ -203,12 +203,12 @@ function isStringArray(value) {
   if(!is.array(value)) {
     return false;
   }
-  
+
   for(let ix=0, ic=value.length; ix<ic; ix++) {
     if(!isString(value[ix])) {
       return false;
     }
   }
-  
+
   return true;
 }

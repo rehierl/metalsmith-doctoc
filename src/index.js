@@ -18,25 +18,25 @@ module.exports = plugin;
 function plugin(userOptions) {
   const options = new Options();
   options.combine(userOptions);
-  
+
   //- afterwards: settings.plugins := { ($configName: $proxy)* }
   //  i.e. each plugins entry will hold a proxy wrapper
   initializePlugins(options);
 
   return function main(files, metalsmith, done) {
     const keys = multimatch(Object.keys(files), options.filter);
-    
+
     for(let ix=0, ic=keys.length; ix<ic; ix++) {
       const filename = keys[ix];
       const file = files[filename];
-      
+
       try {
         //flagValue
         //- false - ignore this file
         //- true - use the default plugin with non-file specific options
         //- { config: $configName (, options: $options)? }
         const flagValue = getFlagValue(filename, file, options);
-        
+
         if(flagValue === false) {
           //- ignore this file
           continue;
@@ -49,7 +49,7 @@ function plugin(userOptions) {
 
         //- process the current file
         const root = proxy.run(filename, file);
-        
+
         //- assign the tree to the selected property
         //- root - the root node of the document's toc menu tree
         file[options.doctocTree] = root;
@@ -58,7 +58,7 @@ function plugin(userOptions) {
         return;
       }
     }
-    
+
     done();
   };
 }
@@ -69,23 +69,23 @@ function plugin(userOptions) {
 //- after:  options.plugins := { ($configName: $proxy)* }
 function initializePlugins(options) {
   const keys = Object.keys(options.plugins);
-  
+
   for(let ix=0, ic=keys.length; ix<ic; ix++) {
     const configName = keys[ix];
     let definition = options.plugins[configName];
-    
+
     //### turn ($name | $class) into $definition
-    
+
     if(is.string(definition)) {
       //- the name of an integrated plugin
       definition = { plugin: definition };
     }
-    
+
     else if(is.fn(definition)) {
       //- a class type function
       definition = { plugin: definition };
     }
-    
+
     else if(!is.object(definition)) {
       throw new Error(util.format(
         "doctoc: options.plugins[%s] "
@@ -93,7 +93,7 @@ function initializePlugins(options) {
         configName
       ));
     }
-    
+
     else if(!definition.hasOwnProperty("plugin")) {
       throw new Error(util.format(
         "doctoc: options.plugins[%s] "
@@ -101,11 +101,11 @@ function initializePlugins(options) {
         configName
       ));
     }
-    
+
     //### initialize $definition.plugin
-    
+
     let plugin = definition.plugin;
-    
+
     if(is.string(plugin)) {
       try {//- the name of an integrated plugin
         plugin = resolvePluginReference(plugin, options);
@@ -118,7 +118,7 @@ function initializePlugins(options) {
         newError.innerError = error;
         throw newError;
       }
-      
+
       if(!is.fn(plugin) && !is.object(plugin)) {
         throw new Error(util.format(
           "doctoc: options.plugins[%s].plugin: "
@@ -127,7 +127,7 @@ function initializePlugins(options) {
         ));
       }
     }
-    
+
     if(is.fn(plugin)) {
       try {//- a class type function
         plugin = new plugin();
@@ -141,7 +141,7 @@ function initializePlugins(options) {
         throw newError;
       }
     }
-    
+
     if(!is.object(plugin)) {
       throw new Error(util.format(
         "doctoc: options.plugins[%s].plugin "
@@ -149,16 +149,16 @@ function initializePlugins(options) {
         configName
       ));
     }
-    
+
     //### replace $definition.plugin with $proxy
-    
+
     const proxy = new Proxy(configName, plugin);
-    
+
     //- apply options.plugins[X].options
     if(definition.hasOwnProperty("options")) {
       proxy.setDefaultOptions(definition.options);
     }
-    
+
     //- replace defintion with proxy
     options.plugins[configName] = proxy;
   }//- for
@@ -168,11 +168,11 @@ function initializePlugins(options) {
 
 function resolvePluginReference(reference, options) {
   //### test for integrated plugins
-  
+
   if(reference === "doctoc-default") {
     return require("./doctoc-default/Plugin.js");
   }
-  
+
   if(options.enableRequire === true) {
     try {
       return require(reference);
@@ -186,9 +186,9 @@ function resolvePluginReference(reference, options) {
       }
     }
   }
-  
+
   //### not an integrated plugin
-  
+
   if(options.resolveFunc) {
     return options.resolveFunc(reference);
   }
@@ -204,36 +204,36 @@ function getFlagValue(filename, file, options) {
   if(options.ignoreFlag) {
     return true;//- use the default configuration
   }
-  
+
   let flagName = options.doctocFlag;
-  
+
   if(!file.hasOwnProperty(options.doctocFlag)) {
     return false;//- ignore this file
   }
-  
+
   const flagValue = file[flagName];
-  
+
   if (flagValue === false) {
     return false;//- ignore this file
   }
-  
+
   else if(flagValue === true) {
     return true;//- use the default configuration
   }
-  
+
   else if(is.string(flagValue)) {
     //- use the specified configuration
     //  with non-file specific options
     return { config: flagValue };
   }
-  
+
   if(!is.object(flagValue)) {
     throw new Error(util.format(
       "doctoc [%s].[%s]: must be an object",
       filename, flagName
     ));
   }
-  
+
   if(!flagValue.hasOwnProperty("config")) {
     throw new Error(util.format(
       "doctoc [%s].[%s]: must have a 'config' property",
@@ -263,24 +263,24 @@ function selectProxy(filename, flagValue, options) {
   if(flagValue === true) {
     flagValue = { config: options.default };
   }
-  
+
   const configName = flagValue.config;
   const plugins = options.plugins;
-  
+
   if(!plugins.hasOwnProperty(configName)) {
     throw new Error(util.format(
       "doctoc [%s].[%s]: unknown $configName reference",
       filename, options.doctocFlag
     ));
   }
-  
+
   const proxy = plugins[configName];
-  
+
   //- apply file[doctocFlag].options
   if(flagValue.hasOwnProperty("options")) {
     let options = flagValue.options;
     proxy.setFileOptions(filename, options);
   }
-  
+
   return proxy;
 }

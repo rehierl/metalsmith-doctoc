@@ -15,10 +15,10 @@ function Proxy(configName, plugin) {
   if(!(this instanceof Proxy)) {
     return new Proxy(configName, plugin);
   }
-  
+
   this.configName = configName;
   this.plugin = plugin;
-  
+
   //- send the plugin an api object
   this.setPluginsApi();
 }
@@ -83,7 +83,7 @@ Proxy.prototype.setFileOptions = function(filename, options) {
     ));
     return;
   }
-  
+
   try {
     this.plugin.setFileOptions(filename, options);
   } catch(error) {
@@ -103,7 +103,7 @@ Proxy.prototype.setFileOptions = function(filename, options) {
 //- public (doctoc => plugin)
 Proxy.prototype.run = function(filename, file) {
   let root = undefined;
-  
+
   if(!is.fn(this.plugin["run"])) {
     throw new Error(util.format(
       "doctoc: options.plugins[%s]: "
@@ -111,7 +111,7 @@ Proxy.prototype.run = function(filename, file) {
       this.configName
     ));
   }
-  
+
   try {
     root = this.plugin.run(filename, file);
   } catch(error) {
@@ -123,6 +123,6 @@ Proxy.prototype.run = function(filename, file) {
     newError.innerError = error;
     throw newError;
   }
-  
+
   return root;
 };

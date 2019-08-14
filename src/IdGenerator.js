@@ -14,7 +14,7 @@ module.exports = IdGenerator;
 // exact same value if you call it with the exact same input. Although, this is
 // what these functions are supposed to do, this has the potential to create
 // colliding id values:
-// 
+//
 // 0) assume that 'idVal' = slug(title)
 // 1) inside of some section: <h3>title</h3> => <h3 id='idVal'>title</h3>
 // 2) inside another section: <h4>title</h4> => <h4 id='idVal'>title</h4>
@@ -56,17 +56,17 @@ function IdGenerator(options) {
   if(!(this instanceof IdGenerator)) {
     return new IdGenerator(options);
   }
-  
+
   this.slugFunc = slug;
   this.idPrefix = "doctoc";
   this.idLengthLimit = 256;
-  
+
   //- cache = { $id: nextSuffixNum }
   this.cache = {};
-  
+
   //- the last cache entry used
   this.cacheLast = undefined;
-  
+
   //- apply the options provided
   this.set(options);
 }
@@ -96,19 +96,19 @@ IdGenerator.prototype.set = function(options) {
 IdGenerator.prototype.nextId = function(text) {
   if(arguments.length === 0) {
     //- in case of .nextId()
-    
+
     if(this.cacheLast === undefined) {
       throw new Error("invalid call");
     }
-    
+
     let id = this.cacheLast;
     let num = this.cache[id];
     this.cache[id] = num + 1;
-    
+
     return util.format("%s-%s", id, num);
   } else {
     //- in case of .nextId(text)
-    
+
     let id = util.format("%s%s",
       this.idPrefix, this.slugFunc(text)
     );

@@ -70,7 +70,7 @@ msi
   filter: "**",
   //ignoreFlag: false,
   doctocFlag: "doctoc",
-  
+
   plugins: {
     "default": {
       plugin: "doctoc-default",
@@ -83,7 +83,7 @@ msi
       }
     }
   },
-  
+
   "default": "default",
   //enableRequire: false,
   //resolveFunc: require,
@@ -105,9 +105,9 @@ msi
 //- run metalsmith's build process
 .build(function(error, files) {
   if(!error) { return false; }
-  
+
   //- may have error.innerError
   console.log("ERROR:", error);
-  
+
   //throw error;
 });
